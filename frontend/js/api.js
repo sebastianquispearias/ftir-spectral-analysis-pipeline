@@ -73,7 +73,7 @@ async function runAnova(variableRespuesta = "area_carb") {
 }
 
 async function autoDetectAnchors(fileId, nPoints = 10) {
-  const res = await apiRequest(`/anchor-points/auto/${fileId}?n_points=${nPoints}`);
+  const res = await apiRequest(`/anchors/auto/${fileId}?n_points=${nPoints}`);
   return res.json();
 }
 

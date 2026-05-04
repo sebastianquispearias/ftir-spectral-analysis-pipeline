@@ -214,7 +214,7 @@ async def get_spectrum(file_id: str, request: Request):
     return {"x": x.tolist(), "y": y.tolist(), "nombre": entry.nombre}
 
 
-@app.get("/api/anchor-points/auto/{file_id}")
+@app.get("/api/anchors/auto/{file_id}")
 async def auto_anchor_points(file_id: str, request: Request, n_points: int = 10):
     _, session = _get_session(request)
     if file_id not in session.files:
@@ -344,4 +344,9 @@ async def export_excel(request: Request):
 
 frontend_dir = Path(__file__).resolve().parent.parent / "frontend"
 if frontend_dir.exists():
-    app.mount("/", StaticFiles(directory=str(frontend_dir), html=True), name="frontend")
+    app.mount("/css", StaticFiles(directory=str(frontend_dir / "css")), name="css")
+    app.mount("/js", StaticFiles(directory=str(frontend_dir / "js")), name="js")
+
+    @app.get("/")
+    async def serve_frontend():
+        return FileResponse(str(frontend_dir / "index.html"))
