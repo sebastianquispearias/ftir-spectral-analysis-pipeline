@@ -104,13 +104,23 @@ async function handleFilesSelected(files, meta = {}) {
   statusEl.className = "mt-3 text-sm text-slate-500";
   try {
     const result = await uploadFiles(files);
-    state.files.push(...result.archivos);
+    let replaced = 0;
+    for (const newFile of result.archivos) {
+      const idx = state.files.findIndex((f) => f.nombre === newFile.nombre);
+      if (idx >= 0) {
+        state.files[idx] = newFile;
+        replaced++;
+      } else {
+        state.files.push(newFile);
+      }
+    }
     renderFileList();
     renderUploadSummary();
     updatePreviewSelector();
     const source = meta.source ? ` from "${meta.source}"` : "";
     const ignoredNote = meta.ignored > 0 ? ` (${meta.ignored} non-.dpt file(s) ignored)` : "";
-    statusEl.textContent = `${result.count} .dpt file(s) uploaded${source}.${ignoredNote}`;
+    const replacedNote = replaced > 0 ? ` (${replaced} replaced)` : "";
+    statusEl.textContent = `${result.count} .dpt file(s) uploaded${source}.${replacedNote}${ignoredNote}`;
     statusEl.className = "mt-3 text-sm text-emerald-600";
     revealSection("#section-baseline");
     if (state.files.length > 0 && !state.previewFileId) {

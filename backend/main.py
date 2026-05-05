@@ -175,6 +175,14 @@ async def upload(request: Request, files: list[UploadFile]):
             file_path.unlink(missing_ok=True)
             raise HTTPException(400, f"Invalid .dpt file '{f.filename}': {e}")
 
+        existing_id = next(
+            (fid for fid, fe in session.files.items() if fe.nombre == f.filename),
+            None,
+        )
+        if existing_id:
+            old_entry = session.files.pop(existing_id)
+            old_entry.path.unlink(missing_ok=True)
+
         exp, rep = _parse_filename(f.filename)
         entry = FileEntry(
             id=file_id,
