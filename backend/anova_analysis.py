@@ -21,16 +21,11 @@ def construir_matriz_diseno_box_behnken() -> pd.DataFrame:
 
 
 def preparar_datos_anova(df_resultados: pd.DataFrame) -> pd.DataFrame:
-    """Aggregate replicas by experiment (mean, std) and merge with design matrix."""
-    metricas = ["altura_carb", "area_carb", "normalizada", "altura_ref"]
-
-    agg_dict: dict[str, list[str]] = {m: ["mean", "std"] for m in metricas if m in df_resultados.columns}
-    resumen = df_resultados.groupby("experimento").agg(agg_dict)
-    resumen.columns = [f"{col}_{stat}" for col, stat in resumen.columns]
-    resumen = resumen.reset_index()
-
+    """Merge individual replicas with design matrix (no averaging)."""
     diseno = construir_matriz_diseno_box_behnken()
-    merged = diseno.merge(resumen, left_on="exp", right_on="experimento", how="left")
+    merged = diseno.merge(
+        df_resultados, left_on="exp", right_on="experimento", how="inner",
+    )
     return merged
 
 
@@ -38,28 +33,27 @@ def correr_anova_completo(
     df_resultados: pd.DataFrame,
     variable_respuesta: str = "area_carb",
 ) -> dict:
-    """Fit a full quadratic model on the 15 experiment means.
+    """Fit a full quadratic model on individual replicas.
 
-    Model fitted on per-experiment means (n=15), not individual replicas.
-    TODO: consider model with 150 individual replicas and experiment
-    as a blocking factor in a future iteration.
+    Uses all replicas (e.g. 150 observations for 15 experiments × 10 reps)
+    instead of experiment means, giving more degrees of freedom and the
+    ability to separate pure error from lack of fit.
     """
     datos = preparar_datos_anova(df_resultados)
-    col_media = f"{variable_respuesta}_mean"
 
-    if col_media not in datos.columns:
-        raise ValueError(f"Column '{col_media}' not found. Available: {list(datos.columns)}")
+    if variable_respuesta not in datos.columns:
+        raise ValueError(f"Column '{variable_respuesta}' not found. Available: {list(datos.columns)}")
 
-    datos = datos.rename(columns={col_media: "Y"})
+    datos = datos.rename(columns={variable_respuesta: "Y"})
     datos_valid = datos.dropna(subset=["Y"])
 
-    n_exp = len(datos_valid)
-    if n_exp < 10:
-        present = datos_valid["exp"].tolist()
+    n_experiments = datos_valid["exp"].nunique()
+    if n_experiments < 10:
+        present = sorted(datos_valid["exp"].unique().tolist())
         raise ValueError(
             f"ANOVA requires data from at least 10 of the 15 experiments "
             f"(full quadratic model has 10 parameters). "
-            f"Currently only {n_exp} experiment(s) have data: {present}. "
+            f"Currently only {n_experiments} experiment(s) have data: {present}. "
             f"Upload the remaining experiment files and re-process."
         )
 

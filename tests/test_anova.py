@@ -77,16 +77,16 @@ class TestPrepararDatos:
     def test_merge_correcto(self):
         df = _generar_resultados_sinteticos()
         merged = preparar_datos_anova(df)
-        assert len(merged) == 15
+        assert len(merged) == 150
         assert "X1" in merged.columns
-        assert "area_carb_mean" in merged.columns
-        assert "area_carb_std" in merged.columns
+        assert "area_carb" in merged.columns
+        assert "experimento" in merged.columns
 
-    def test_medias_razonables(self):
+    def test_valores_razonables(self):
         df = _generar_resultados_sinteticos()
         merged = preparar_datos_anova(df)
-        assert all(merged["area_carb_mean"].notna())
-        assert merged["area_carb_mean"].std() > 0
+        assert all(merged["area_carb"].notna())
+        assert merged["area_carb"].std() > 0
 
 
 class TestAnovaCompleto:
