@@ -118,12 +118,14 @@ def calcular_baseline(
             )
 
         x_min, x_max = float(x.min()), float(x.max())
-        out_of_range = anchors[(anchors < x_min) | (anchors > x_max)]
+        tolerance = (x_max - x_min) * 0.001
+        out_of_range = anchors[(anchors < x_min - tolerance) | (anchors > x_max + tolerance)]
         if len(out_of_range) > 0:
             raise ValueError(
                 f"Anchor points outside spectrum range "
                 f"[{x_min:.1f}, {x_max:.1f}]: {out_of_range.tolist()}"
             )
+        anchors = np.clip(anchors, x_min, x_max)
 
         indices = sorted([int(np.argmin(np.abs(x - ap))) for ap in anchors])
         anchor_x = x[indices]
