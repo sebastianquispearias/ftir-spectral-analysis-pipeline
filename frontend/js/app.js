@@ -565,20 +565,31 @@ function renderAnovaResults(data) {
   $("#anova-significant").className = data.modelo_significativo
     ? "text-2xl font-bold text-emerald-600" : "text-2xl font-bold text-red-600";
 
+  const termLabels = {
+    "X1": "Temperature", "X2": "Time", "X3": "NaClO",
+    "I(X1 ** 2)": "Temperature²", "I(X2 ** 2)": "Time²", "I(X3 ** 2)": "NaClO²",
+    "X1:X2": "Temp × Time", "X1:X3": "Temp × NaClO", "X2:X3": "Time × NaClO",
+    "Residual": "Residual",
+  };
   $("#anova-tbody").innerHTML = data.tabla_anova.fuente.map((f, i) => {
     const p = data.tabla_anova["PR(>F)"][i]; const sig = p !== null && p < 0.05;
+    const desc = termLabels[f] || f;
     return `<tr class="${sig ? "bg-emerald-50" : "hover:bg-slate-50"}">
-      <td class="px-3 py-1.5 text-sm">${f}</td>
+      <td class="px-3 py-1.5 text-sm font-mono text-slate-500">${f}</td>
+      <td class="px-3 py-1.5 text-sm">${desc}</td>
       <td class="px-3 py-1.5 text-sm text-right font-mono">${data.tabla_anova.sum_sq[i]?.toFixed(6) ?? "-"}</td>
       <td class="px-3 py-1.5 text-sm text-center">${data.tabla_anova.df[i]?.toFixed(0) ?? "-"}</td>
       <td class="px-3 py-1.5 text-sm text-right font-mono">${data.tabla_anova.F[i]?.toFixed(4) ?? "-"}</td>
       <td class="px-3 py-1.5 text-sm text-right font-mono ${sig ? "text-emerald-700 font-semibold" : ""}">${p?.toFixed(6) ?? "-"}</td></tr>`;
   }).join("");
 
+  const coefLabels = { ...termLabels, "Intercept": "Intercept" };
   $("#coef-tbody").innerHTML = Object.entries(data.coeficientes).map(([n, v]) => {
     const p = data.p_values[n]; const sig = p < 0.05;
+    const desc = coefLabels[n] || n;
     return `<tr class="${sig ? "bg-emerald-50" : "hover:bg-slate-50"}">
-      <td class="px-3 py-1.5 text-sm">${n}</td>
+      <td class="px-3 py-1.5 text-sm font-mono text-slate-500">${n}</td>
+      <td class="px-3 py-1.5 text-sm">${desc}</td>
       <td class="px-3 py-1.5 text-sm text-right font-mono">${v.toFixed(6)}</td>
       <td class="px-3 py-1.5 text-sm text-right font-mono ${sig ? "text-emerald-700 font-semibold" : ""}">${p.toFixed(6)}</td></tr>`;
   }).join("");
