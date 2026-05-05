@@ -137,6 +137,43 @@ def main():
     plt.close(fig)
     print(f"\nPlot saved: {plot_path.relative_to(ROOT)}")
 
+    # --- Zoomed plot: carboxylate region only ---
+    fig2, (ax3, ax4) = plt.subplots(2, 1, figsize=(10, 7))
+    margin = 50
+    x_lo, x_hi = rng[0] - margin, rng[1] + margin
+
+    for ax, y_pipe, x_orig, y_orig, met_p, met_o, title in [
+        (ax3, y_corr_a, x_orig_a, y_orig_a, met_a, met_orig_a, "Without smoothing"),
+        (ax4, y_corr_b, x_orig_b, y_orig_b, met_b, met_orig_b, "With AAV-5 smoothing"),
+    ]:
+        mask_p = (x >= x_lo) & (x <= x_hi)
+        mask_o = (x_orig >= x_lo) & (x_orig <= x_hi)
+        ax.plot(x[mask_p], y_pipe[mask_p], color="#4f46e5", linewidth=1.5, label="Pipeline")
+        ax.plot(x_orig[mask_o], y_orig[mask_o], color="#dc2626", linewidth=1.5,
+                linestyle="--", alpha=0.8, label="OriginLab")
+        ax.axvspan(rng[0], rng[1], alpha=0.12, color="#10b981")
+        ax.set_ylabel("Absorbance (corrected)")
+        ax.set_title(title)
+        ax.legend(loc="upper right", fontsize=9)
+        ax.grid(True, alpha=0.3)
+
+        h_diff = pct_diff(met_p["altura"], met_o["altura"])
+        a_diff = pct_diff(met_p["area"], met_o["area"])
+        ax.text(0.02, 0.95,
+                f"Height: {met_p['altura']:.5f} vs {met_o['altura']:.5f} ({h_diff:.2f}%)\n"
+                f"Area:   {met_p['area']:.5f} vs {met_o['area']:.5f} ({a_diff:.2f}%)",
+                transform=ax.transAxes, fontsize=9, verticalalignment="top",
+                fontfamily="monospace",
+                bbox=dict(boxstyle="round,pad=0.4", facecolor="white", alpha=0.9))
+
+    ax4.set_xlabel("Wavenumber (cm-1)")
+    fig2.suptitle(f"Carboxylate Region Zoom ({rng[0]}-{rng[1]} cm-1)", fontsize=14, y=0.98)
+    fig2.tight_layout()
+    zoom_path = OUTPUT_DIR / "comparison_zoom.png"
+    fig2.savefig(zoom_path, dpi=150, bbox_inches="tight")
+    plt.close(fig2)
+    print(f"Zoom plot saved: {zoom_path.relative_to(ROOT)}")
+
     # --- Report ---
     report_lines = [
         "# Pipeline vs OriginLab — Validation Report",
