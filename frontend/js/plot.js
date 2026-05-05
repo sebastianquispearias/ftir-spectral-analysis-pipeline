@@ -233,12 +233,14 @@ function plotSurface(divId, surfaceData, optimo, mode) {
     const layout = {
       font: { family: "Inter, system-ui, sans-serif", size: 11 },
       paper_bgcolor: "transparent",
-      margin: { t: 40, r: 20, b: 50, l: 60 },
-      title: { text: title, font: { size: 13 } },
-      xaxis: { title: surfaceData.x_label },
-      yaxis: { title: surfaceData.y_label },
+      margin: { t: 40, r: 20, b: 60, l: 70 },
+      title: { text: title, font: { size: 12 } },
+      xaxis: { title: surfaceData.x_label, automargin: true },
+      yaxis: { title: surfaceData.y_label, automargin: true },
     };
-    Plotly.newPlot(divId, traces, layout, { responsive: true });
+    const el = document.getElementById(divId);
+    Plotly.newPlot(el, traces, layout, { responsive: true, displaylogo: false });
+    requestAnimationFrame(() => Plotly.Plots.resize(el));
     return;
   }
 
@@ -273,13 +275,15 @@ function plotSurface(divId, surfaceData, optimo, mode) {
   const layout = {
     font: { family: "Inter, system-ui, sans-serif", size: 11 },
     paper_bgcolor: "transparent",
-    margin: { t: 40, r: 10, b: 10, l: 10 },
-    title: { text: title, font: { size: 13 } },
+    margin: { t: 50, r: 50, b: 50, l: 50 },
+    title: { text: title, font: { size: 12 } },
     scene: {
-      xaxis: { title: surfaceData.x_label },
-      yaxis: { title: surfaceData.y_label },
-      zaxis: { title: surfaceData.z_label },
+      xaxis: { title: { text: surfaceData.x_label }, automargin: true },
+      yaxis: { title: { text: surfaceData.y_label }, automargin: true },
+      zaxis: { title: { text: surfaceData.z_label }, automargin: true },
     },
   };
-  Plotly.newPlot(divId, traces, layout, { responsive: true });
+  const el = document.getElementById(divId);
+  Plotly.newPlot(el, traces, layout, { responsive: true, displaylogo: false });
+  requestAnimationFrame(() => Plotly.Plots.resize(el));
 }

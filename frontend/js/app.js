@@ -620,6 +620,13 @@ function _renderSurfaces(data) {
   const c = $("#surface-plots");
   c.innerHTML = data.superficies.map((_, i) => `<div id="surface-${i}" class="h-96"></div>`).join("");
   data.superficies.forEach((s, i) => plotSurface(`surface-${i}`, s, data.condicion_optima, mode));
+  setTimeout(() => _resizeSurfaces(), 300);
+}
+
+function _resizeSurfaces() {
+  document.querySelectorAll('[id^="surface-"]').forEach((el) => {
+    if (el._fullLayout) Plotly.Plots.resize(el);
+  });
 }
 
 function toggleSurfaceMode() {
@@ -769,4 +776,5 @@ document.addEventListener("DOMContentLoaded", () => {
     const el = document.getElementById("build-info");
     if (el && d.commit) el.textContent = `build ${d.commit}`;
   }).catch(() => {});
+  window.addEventListener("resize", () => _resizeSurfaces());
 });
