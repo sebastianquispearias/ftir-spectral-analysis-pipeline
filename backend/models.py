@@ -120,3 +120,6 @@ class AnovaResponse(BaseModel):
     terminos_significativos: list[str]
     condicion_optima: dict[str, float | str]
     superficies: list[SurfaceData]
+    residuals: list[float] = []
+    predicted: list[float] = []
+    lack_of_fit_significant: bool | None = None

@@ -347,6 +347,9 @@ async def run_anova(body: AnovaRequest, request: Request):
         terminos_significativos=resultado["terminos_significativos"],
         condicion_optima=resultado["condicion_optima"],
         superficies=superficies,
+        residuals=resultado.get("residuals", []),
+        predicted=resultado.get("predicted", []),
+        lack_of_fit_significant=resultado.get("lack_of_fit_significant"),
     )
 
 
@@ -423,6 +426,10 @@ frontend_dir = Path(__file__).resolve().parent.parent / "frontend"
 if frontend_dir.exists():
     app.mount("/css", StaticFiles(directory=str(frontend_dir / "css")), name="css")
     app.mount("/js", StaticFiles(directory=str(frontend_dir / "js")), name="js")
+
+    @app.get("/favicon.svg")
+    async def serve_favicon():
+        return FileResponse(str(frontend_dir / "favicon.svg"), media_type="image/svg+xml")
 
     @app.get("/")
     async def serve_frontend():

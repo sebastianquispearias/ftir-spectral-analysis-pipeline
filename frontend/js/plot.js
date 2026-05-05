@@ -5,6 +5,12 @@ const PLOT_COLORS = {
   anchor: "#ef4444",
 };
 
+const PLOTLY_CONFIG = {
+  responsive: true,
+  displaylogo: false,
+  toImageButtonOptions: { format: "png", height: 800, width: 1200, scale: 2 },
+};
+
 const PLOT_LAYOUT_BASE = {
   font: { family: "Inter, system-ui, sans-serif", size: 12 },
   paper_bgcolor: "transparent",
@@ -92,10 +98,9 @@ function plotBaselinePreview(divId, data, titleText) {
   };
 
   Plotly.newPlot(divId, traces, layout, {
-    responsive: true,
+    ...PLOTLY_CONFIG,
     scrollZoom: true,
     modeBarButtonsToRemove: ["select2d", "lasso2d", "autoScale2d"],
-    displaylogo: false,
   });
 }
 
@@ -163,7 +168,7 @@ function plotResultsBoxplot(divId, resultados, variable = "area_carb") {
     yaxis: { title: labels[variable] || variable, gridcolor: "#e2e8f0" },
     showlegend: false,
   };
-  Plotly.newPlot(divId, traces, layout, { responsive: true });
+  Plotly.newPlot(divId, traces, layout, PLOTLY_CONFIG);
 }
 
 const FACTOR_REAL = {
@@ -239,7 +244,7 @@ function plotSurface(divId, surfaceData, optimo, mode) {
       yaxis: { title: surfaceData.y_label, automargin: true },
     };
     const el = document.getElementById(divId);
-    Plotly.newPlot(el, traces, layout, { responsive: true, displaylogo: false });
+    Plotly.newPlot(el, traces, layout, PLOTLY_CONFIG);
     requestAnimationFrame(() => Plotly.Plots.resize(el));
     return;
   }
@@ -284,6 +289,93 @@ function plotSurface(divId, surfaceData, optimo, mode) {
     },
   };
   const el = document.getElementById(divId);
-  Plotly.newPlot(el, traces, layout, { responsive: true, displaylogo: false });
+  Plotly.newPlot(el, traces, layout, PLOTLY_CONFIG);
   requestAnimationFrame(() => Plotly.Plots.resize(el));
+}
+
+function plotQQ(divId, residuals) {
+  const sorted = [...residuals].sort((a, b) => a - b);
+  const n = sorted.length;
+  const theoretical = sorted.map((_, i) => {
+    const p = (i + 0.5) / n;
+    return _qnorm(p);
+  });
+
+  const trace = {
+    x: theoretical, y: sorted,
+    type: "scatter", mode: "markers",
+    marker: { color: PLOT_COLORS.original, size: 4 },
+    name: "Residuals",
+  };
+  const minV = Math.min(...theoretical);
+  const maxV = Math.max(...theoretical);
+  const refLine = {
+    x: [minV, maxV], y: [minV * _std(residuals), maxV * _std(residuals)],
+    type: "scatter", mode: "lines",
+    line: { color: "#ef4444", dash: "dash", width: 1.5 },
+    name: "Normal reference",
+  };
+
+  const layout = {
+    ...PLOT_LAYOUT_BASE,
+    title: { text: "Normal Q-Q Plot", font: { size: 13 } },
+    xaxis: { title: "Theoretical Quantiles", gridcolor: "#e2e8f0" },
+    yaxis: { title: "Residuals", gridcolor: "#e2e8f0" },
+    showlegend: false,
+  };
+  Plotly.newPlot(divId, [trace, refLine], layout, PLOTLY_CONFIG);
+}
+
+function plotResidualsVsPredicted(divId, residuals, predicted) {
+  const trace = {
+    x: predicted, y: residuals,
+    type: "scatter", mode: "markers",
+    marker: { color: PLOT_COLORS.original, size: 4 },
+  };
+  const zeroLine = {
+    x: [Math.min(...predicted), Math.max(...predicted)],
+    y: [0, 0],
+    type: "scatter", mode: "lines",
+    line: { color: "#ef4444", dash: "dash", width: 1.5 },
+  };
+
+  const layout = {
+    ...PLOT_LAYOUT_BASE,
+    title: { text: "Residuals vs Predicted", font: { size: 13 } },
+    xaxis: { title: "Predicted Values", gridcolor: "#e2e8f0" },
+    yaxis: { title: "Residuals", gridcolor: "#e2e8f0" },
+    showlegend: false,
+  };
+  Plotly.newPlot(divId, [trace, zeroLine], layout, PLOTLY_CONFIG);
+}
+
+function _qnorm(p) {
+  const a1 = -3.969683028665376e+01, a2 = 2.209460984245205e+02;
+  const a3 = -2.759285104469687e+02, a4 = 1.383577518672690e+02;
+  const a5 = -3.066479806614716e+01, a6 = 2.506628277459239e+00;
+  const b1 = -5.447609879822406e+01, b2 = 1.615858368580409e+02;
+  const b3 = -1.556989798598866e+02, b4 = 6.680131188771972e+01;
+  const b5 = -1.328068155288572e+01;
+  const c1 = -7.784894002430293e-03, c2 = -3.223964580411365e-01;
+  const c3 = -2.400758277161838e+00, c4 = -2.549732539343734e+00;
+  const c5 = 4.374664141464968e+00, c6 = 2.938163982698783e+00;
+  const d1 = 7.784695709041462e-03, d2 = 3.224671290700398e-01;
+  const d3 = 2.445134137142996e+00, d4 = 3.754408661907416e+00;
+  const pLow = 0.02425, pHigh = 1 - pLow;
+  let q, r;
+  if (p < pLow) {
+    q = Math.sqrt(-2 * Math.log(p));
+    return (((((c1*q+c2)*q+c3)*q+c4)*q+c5)*q+c6) / ((((d1*q+d2)*q+d3)*q+d4)*q+1);
+  } else if (p <= pHigh) {
+    q = p - 0.5; r = q * q;
+    return (((((a1*r+a2)*r+a3)*r+a4)*r+a5)*r+a6)*q / (((((b1*r+b2)*r+b3)*r+b4)*r+b5)*r+1);
+  } else {
+    q = Math.sqrt(-2 * Math.log(1 - p));
+    return -(((((c1*q+c2)*q+c3)*q+c4)*q+c5)*q+c6) / ((((d1*q+d2)*q+d3)*q+d4)*q+1);
+  }
+}
+
+function _std(arr) {
+  const mean = arr.reduce((a, b) => a + b, 0) / arr.length;
+  return Math.sqrt(arr.reduce((s, v) => s + (v - mean) ** 2, 0) / arr.length);
 }

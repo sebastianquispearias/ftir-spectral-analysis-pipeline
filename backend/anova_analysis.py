@@ -69,13 +69,31 @@ def correr_anova_completo(
 
     condicion_optima = _calcular_optimo(modelo, maximize=maximize)
 
+    lof = _lack_of_fit(datos_valid, modelo)
+
+    fuentes = tabla_anova.index.tolist()
+    sum_sq = tabla_anova["sum_sq"].tolist()
+    df_list = tabla_anova["df"].tolist()
+    f_list = tabla_anova["F"].tolist()
+    p_list = tabla_anova["PR(>F)"].tolist()
+
+    if lof:
+        fuentes.extend(["Lack of Fit", "Pure Error"])
+        sum_sq.extend([lof["lof_ss"], lof["pe_ss"]])
+        df_list.extend([lof["lof_df"], lof["pe_df"]])
+        f_list.extend([lof["lof_F"], None])
+        p_list.extend([lof["lof_p"], None])
+
     tabla_dict = {
-        "fuente": tabla_anova.index.tolist(),
-        "sum_sq": tabla_anova["sum_sq"].tolist(),
-        "df": tabla_anova["df"].tolist(),
-        "F": tabla_anova["F"].tolist(),
-        "PR(>F)": tabla_anova["PR(>F)"].tolist(),
+        "fuente": fuentes,
+        "sum_sq": sum_sq,
+        "df": df_list,
+        "F": f_list,
+        "PR(>F)": p_list,
     }
+
+    residuals = modelo.resid.tolist()
+    predicted = modelo.fittedvalues.tolist()
 
     superficies = _generar_todas_superficies(modelo, variable_respuesta)
 
@@ -89,6 +107,9 @@ def correr_anova_completo(
         "terminos_significativos": terminos_significativos,
         "condicion_optima": condicion_optima,
         "superficies": superficies,
+        "residuals": residuals,
+        "predicted": predicted,
+        "lack_of_fit_significant": lof["lof_p"] < 0.05 if lof else None,
     }
 
 
@@ -126,6 +147,47 @@ def superficie_respuesta(
         "z": z_grid.tolist(),
         "x_label": factor_labels.get(factor_x, factor_x),
         "y_label": factor_labels.get(factor_y, factor_y),
+    }
+
+
+def _lack_of_fit(datos: pd.DataFrame, modelo) -> dict | None:
+    """Separate residual SS into pure error and lack of fit."""
+    from scipy.stats import f as f_dist
+
+    datos = datos.copy()
+    datos["residual"] = modelo.resid
+    datos["predicted"] = modelo.fittedvalues
+
+    pe_ss = 0.0
+    pe_df = 0
+    for _, group in datos.groupby("exp"):
+        if len(group) < 2:
+            continue
+        group_mean = group["Y"].mean()
+        pe_ss += ((group["Y"] - group_mean) ** 2).sum()
+        pe_df += len(group) - 1
+
+    if pe_df == 0:
+        return None
+
+    total_resid_ss = (modelo.resid ** 2).sum()
+    total_resid_df = int(modelo.df_resid)
+
+    lof_ss = total_resid_ss - pe_ss
+    lof_df = total_resid_df - pe_df
+
+    if lof_df <= 0 or pe_df <= 0:
+        return None
+
+    lof_ms = lof_ss / lof_df
+    pe_ms = pe_ss / pe_df
+    lof_F = lof_ms / pe_ms if pe_ms > 0 else float("inf")
+    lof_p = 1.0 - f_dist.cdf(lof_F, lof_df, pe_df)
+
+    return {
+        "lof_ss": float(lof_ss), "lof_df": float(lof_df),
+        "lof_F": float(lof_F), "lof_p": float(lof_p),
+        "pe_ss": float(pe_ss), "pe_df": float(pe_df),
     }
 
 

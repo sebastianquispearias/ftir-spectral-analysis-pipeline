@@ -609,6 +609,8 @@ function renderAnovaResults(data) {
     "I(X1 ** 2)": "Temperature²", "I(X2 ** 2)": "Time²", "I(X3 ** 2)": "NaClO²",
     "X1:X2": "Temp × Time", "X1:X3": "Temp × NaClO", "X2:X3": "Time × NaClO",
     "Residual": "Residual",
+    "Lack of Fit": "Lack of Fit",
+    "Pure Error": "Pure Error",
   };
   $("#anova-tbody").innerHTML = data.tabla_anova.fuente.map((f, i) => {
     const p = data.tabla_anova["PR(>F)"][i]; const sig = p !== null && p < 0.05;
@@ -647,8 +649,29 @@ function renderAnovaResults(data) {
       <div class="p-3 ${predColor} rounded-lg border"><div class="text-xs ${predLabelColor} uppercase">${predLabel}</div><div class="text-lg font-semibold">${predY}</div></div>
     </div>`;
 
+  const lofEl = $("#lof-warning");
+  if (data.lack_of_fit_significant === true) {
+    lofEl.innerHTML = `<div class="flex items-center gap-2 px-4 py-3 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-sm">
+      <svg class="w-5 h-5 shrink-0 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"/>
+      </svg>
+      <span><strong>Lack of Fit is significant (p &lt; 0.05)</strong> — the quadratic model may not capture all the complexity in the data. Consider adding higher-order terms or examining the residual plots below.</span>
+    </div>`;
+    lofEl.classList.remove("hidden");
+  } else if (data.lack_of_fit_significant === false) {
+    lofEl.innerHTML = `<div class="px-4 py-3 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm">Lack of Fit is <strong>not significant</strong> — the quadratic model adequately describes the data.</div>`;
+    lofEl.classList.remove("hidden");
+  } else {
+    lofEl.classList.add("hidden");
+  }
+
   if (data.superficies && data.superficies.length > 0) {
     _renderSurfaces(data);
+  }
+
+  if (data.residuals && data.residuals.length > 0) {
+    plotQQ("plot-qq", data.residuals);
+    plotResidualsVsPredicted("plot-residuals-vs-predicted", data.residuals, data.predicted);
   }
 }
 
