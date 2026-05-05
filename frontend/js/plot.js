@@ -166,28 +166,120 @@ function plotResultsBoxplot(divId, resultados, variable = "area_carb") {
   Plotly.newPlot(divId, traces, layout, { responsive: true });
 }
 
-function plotSurface(divId, surfaceData) {
-  const trace = {
-    x: surfaceData.x,
-    y: surfaceData.y,
+const FACTOR_REAL = {
+  "Temperatura (°C)": { center: 30, half: 10 },
+  "Tiempo (min)": { center: 90, half: 30 },
+  "NaClO (mL)": { center: 8.0, half: 1.95 },
+};
+
+const FACTOR_CODED_KEY = {
+  "Temperatura (°C)": "X1",
+  "Tiempo (min)": "X2",
+  "NaClO (mL)": "X3",
+};
+
+function _toReal(grid, label) {
+  const f = FACTOR_REAL[label];
+  if (!f) return grid;
+  return grid.map((row) => row.map((v) => f.center + f.half * v));
+}
+
+function _codedToReal(codedVal, label) {
+  const f = FACTOR_REAL[label];
+  return f ? f.center + f.half * codedVal : codedVal;
+}
+
+function _fixedLabel(surfaceData) {
+  const fijo = surfaceData.factor_fijo;
+  const labels = { X1: "Temp", X2: "Time", X3: "NaClO" };
+  const realVals = { X1: "30 °C", X2: "90 min", X3: "8.0 mL" };
+  return `${labels[fijo] || fijo}=${realVals[fijo] || surfaceData.valor_fijo}`;
+}
+
+function plotSurface(divId, surfaceData, optimo, mode) {
+  const xReal = _toReal(surfaceData.x, surfaceData.x_label);
+  const yReal = _toReal(surfaceData.y, surfaceData.y_label);
+
+  const title = `${surfaceData.x_label} vs ${surfaceData.y_label} (${_fixedLabel(surfaceData)})`;
+
+  if (mode === "2d") {
+    const trace = {
+      x: xReal[0],
+      y: yReal.map((row) => row[0]),
+      z: surfaceData.z,
+      type: "contour",
+      colorscale: "Viridis",
+      contours: { coloring: "heatmap" },
+      line: { smoothing: 0.85 },
+    };
+    const traces = [trace];
+
+    if (optimo) {
+      const xKey = FACTOR_CODED_KEY[surfaceData.x_label];
+      const yKey = FACTOR_CODED_KEY[surfaceData.y_label];
+      if (xKey && yKey && optimo[xKey] !== undefined) {
+        traces.push({
+          x: [_codedToReal(optimo[xKey], surfaceData.x_label)],
+          y: [_codedToReal(optimo[yKey], surfaceData.y_label)],
+          type: "scatter",
+          mode: "markers",
+          marker: { color: "#ef4444", size: 12, symbol: "x", line: { color: "white", width: 2 } },
+          name: "Optimum",
+          showlegend: false,
+        });
+      }
+    }
+
+    const layout = {
+      font: { family: "Inter, system-ui, sans-serif", size: 11 },
+      paper_bgcolor: "transparent",
+      margin: { t: 40, r: 20, b: 50, l: 60 },
+      title: { text: title, font: { size: 13 } },
+      xaxis: { title: surfaceData.x_label },
+      yaxis: { title: surfaceData.y_label },
+    };
+    Plotly.newPlot(divId, traces, layout, { responsive: true });
+    return;
+  }
+
+  const surfaceTrace = {
+    x: xReal,
+    y: yReal,
     z: surfaceData.z,
     type: "surface",
     colorscale: "Viridis",
     contours: { z: { show: true, usecolormap: true, highlightcolor: "#fff" } },
   };
+  const traces = [surfaceTrace];
+
+  if (optimo) {
+    const xKey = FACTOR_CODED_KEY[surfaceData.x_label];
+    const yKey = FACTOR_CODED_KEY[surfaceData.y_label];
+    if (xKey && yKey && optimo[xKey] !== undefined) {
+      traces.push({
+        x: [_codedToReal(optimo[xKey], surfaceData.x_label)],
+        y: [_codedToReal(optimo[yKey], surfaceData.y_label)],
+        z: [optimo.predicted_y || 0],
+        type: "scatter3d",
+        mode: "markers",
+        marker: { color: "#ef4444", size: 6, symbol: "diamond",
+                  line: { color: "white", width: 1 } },
+        name: "Optimum",
+        showlegend: false,
+      });
+    }
+  }
+
   const layout = {
     font: { family: "Inter, system-ui, sans-serif", size: 11 },
     paper_bgcolor: "transparent",
     margin: { t: 40, r: 10, b: 10, l: 10 },
-    title: {
-      text: `${surfaceData.x_label} vs ${surfaceData.y_label} (${surfaceData.factor_fijo}=${surfaceData.valor_fijo})`,
-      font: { size: 13 },
-    },
+    title: { text: title, font: { size: 13 } },
     scene: {
       xaxis: { title: surfaceData.x_label },
       yaxis: { title: surfaceData.y_label },
       zaxis: { title: surfaceData.z_label },
     },
   };
-  Plotly.newPlot(divId, [trace], layout, { responsive: true });
+  Plotly.newPlot(divId, traces, layout, { responsive: true });
 }

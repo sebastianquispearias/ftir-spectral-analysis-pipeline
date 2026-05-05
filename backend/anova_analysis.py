@@ -150,6 +150,9 @@ def _calcular_optimo(modelo) -> dict[str, float]:
 
     x_opt = np.clip(x_opt, -1, 1)
 
+    pred_df = pd.DataFrame([{"X1": x_opt[0], "X2": x_opt[1], "X3": x_opt[2]}])
+    predicted_y = float(modelo.predict(pred_df).iloc[0])
+
     return {
         "X1": float(x_opt[0]),
         "X2": float(x_opt[1]),
@@ -157,6 +160,7 @@ def _calcular_optimo(modelo) -> dict[str, float]:
         "temperatura": float(30 + 10 * x_opt[0]),
         "tiempo": float(90 + 30 * x_opt[1]),
         "naclo": float(8.0 + 1.95 * x_opt[2]),
+        "predicted_y": predicted_y,
     }
 
 

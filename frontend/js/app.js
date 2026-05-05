@@ -9,6 +9,7 @@ const state = {
   spectrumData: null,
   resultados: null,
   anovaData: null,
+  surfaceMode: "3d",
   designConfig: null,
   designEditOpen: false,
 };
@@ -558,6 +559,11 @@ async function handleAnova() {
   finally { btn.disabled = false; btn.textContent = "Run ANOVA"; }
 }
 
+function fmtP(p) {
+  if (p === null || p === undefined || isNaN(p)) return "-";
+  return p < 0.001 ? "<0.001" : p.toFixed(3);
+}
+
 function renderAnovaResults(data) {
   $("#anova-r2").textContent = data.r_squared.toFixed(4);
   $("#anova-r2-adj").textContent = data.r_squared_adj.toFixed(4);
@@ -580,7 +586,7 @@ function renderAnovaResults(data) {
       <td class="px-3 py-1.5 text-sm text-right font-mono">${data.tabla_anova.sum_sq[i]?.toFixed(6) ?? "-"}</td>
       <td class="px-3 py-1.5 text-sm text-center">${data.tabla_anova.df[i]?.toFixed(0) ?? "-"}</td>
       <td class="px-3 py-1.5 text-sm text-right font-mono">${data.tabla_anova.F[i]?.toFixed(4) ?? "-"}</td>
-      <td class="px-3 py-1.5 text-sm text-right font-mono ${sig ? "text-emerald-700 font-semibold" : ""}">${p?.toFixed(6) ?? "-"}</td></tr>`;
+      <td class="px-3 py-1.5 text-sm text-right font-mono ${sig ? "text-emerald-700 font-semibold" : ""}">${fmtP(p)}</td></tr>`;
   }).join("");
 
   const coefLabels = { ...termLabels, "Intercept": "Intercept" };
@@ -591,22 +597,36 @@ function renderAnovaResults(data) {
       <td class="px-3 py-1.5 text-sm font-mono text-slate-500">${n}</td>
       <td class="px-3 py-1.5 text-sm">${desc}</td>
       <td class="px-3 py-1.5 text-sm text-right font-mono">${v.toFixed(6)}</td>
-      <td class="px-3 py-1.5 text-sm text-right font-mono ${sig ? "text-emerald-700 font-semibold" : ""}">${p.toFixed(6)}</td></tr>`;
+      <td class="px-3 py-1.5 text-sm text-right font-mono ${sig ? "text-emerald-700 font-semibold" : ""}">${fmtP(p)}</td></tr>`;
   }).join("");
 
   const o = data.condicion_optima;
+  const predY = o.predicted_y != null ? o.predicted_y.toFixed(4) : "-";
   $("#optimal-condition").innerHTML = `
-    <div class="grid grid-cols-3 gap-4 text-center">
+    <div class="grid grid-cols-4 gap-4 text-center">
       <div class="p-3 bg-slate-50 rounded-lg"><div class="text-xs text-slate-500 uppercase">Temperature</div><div class="text-lg font-semibold">${o.temperatura.toFixed(1)} °C</div></div>
       <div class="p-3 bg-slate-50 rounded-lg"><div class="text-xs text-slate-500 uppercase">Time</div><div class="text-lg font-semibold">${o.tiempo.toFixed(1)} min</div></div>
       <div class="p-3 bg-slate-50 rounded-lg"><div class="text-xs text-slate-500 uppercase">NaClO</div><div class="text-lg font-semibold">${o.naclo.toFixed(2)} mL</div></div>
+      <div class="p-3 bg-indigo-50 rounded-lg border border-indigo-200"><div class="text-xs text-indigo-500 uppercase">Predicted</div><div class="text-lg font-semibold text-indigo-700">${predY}</div></div>
     </div>`;
 
   if (data.superficies && data.superficies.length > 0) {
-    const c = $("#surface-plots");
-    c.innerHTML = data.superficies.map((_, i) => `<div id="surface-${i}" class="h-96"></div>`).join("");
-    data.superficies.forEach((s, i) => plotSurface(`surface-${i}`, s));
+    _renderSurfaces(data);
   }
+}
+
+function _renderSurfaces(data) {
+  const mode = state.surfaceMode || "3d";
+  const c = $("#surface-plots");
+  c.innerHTML = data.superficies.map((_, i) => `<div id="surface-${i}" class="h-96"></div>`).join("");
+  data.superficies.forEach((s, i) => plotSurface(`surface-${i}`, s, data.condicion_optima, mode));
+}
+
+function toggleSurfaceMode() {
+  state.surfaceMode = state.surfaceMode === "2d" ? "3d" : "2d";
+  const btn = $("#btn-surface-toggle");
+  if (btn) btn.textContent = state.surfaceMode === "2d" ? "Switch to 3D" : "Switch to 2D";
+  if (state.anovaData) _renderSurfaces(state.anovaData);
 }
 
 function handleExportExcel() { window.open(getExcelUrl(), "_blank"); }
