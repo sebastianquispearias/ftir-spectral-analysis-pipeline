@@ -56,13 +56,23 @@ function getBaselineConfig() {
 function setMode(mode) {
   state.mode = mode;
   const badge = $("#mode-badge");
+  const lockBtn = $("#btn-lock");
   if (mode === "auto") {
     badge.textContent = "Auto";
     badge.className = "text-xs px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 font-medium";
+    if (lockBtn) lockBtn.classList.remove("hidden");
   } else {
     badge.textContent = "Manual";
     badge.className = "text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-medium";
+    if (lockBtn) lockBtn.classList.add("hidden");
   }
+}
+
+function handleLockAnchors() {
+  if (!state.customAnchors || state.customAnchors.length < 4) return;
+  pushUndo();
+  setMode("manual");
+  showToast(`Locked ${state.customAnchors.length} anchor points — smoothing changes won't re-detect`, "success");
 }
 
 function pushUndo() {

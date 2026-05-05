@@ -127,6 +127,10 @@
         <div class="h-5 w-px bg-slate-200"></div>
 
         <span id="mode-badge" class="text-xs px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 font-medium">Auto</span>
+        <button id="btn-lock" onclick="handleLockAnchors()" class="btn-secondary text-xs py-1 px-2" title="Lock current anchor points as manual (prevents re-detection)">
+          <svg class="w-3.5 h-3.5 inline -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+          Lock
+        </button>
         <span id="anchor-count" class="text-xs text-slate-400"></span>
 
         <div class="flex-1"></div>
