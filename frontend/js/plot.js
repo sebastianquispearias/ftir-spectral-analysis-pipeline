@@ -305,7 +305,6 @@ function plotQQ(divId, residuals) {
     x: theoretical, y: sorted,
     type: "scatter", mode: "markers",
     marker: { color: PLOT_COLORS.original, size: 4 },
-    name: "Residuals",
   };
   const minV = Math.min(...theoretical);
   const maxV = Math.max(...theoretical);
@@ -313,17 +312,22 @@ function plotQQ(divId, residuals) {
     x: [minV, maxV], y: [minV * _std(residuals), maxV * _std(residuals)],
     type: "scatter", mode: "lines",
     line: { color: "#ef4444", dash: "dash", width: 1.5 },
-    name: "Normal reference",
   };
 
   const layout = {
-    ...PLOT_LAYOUT_BASE,
-    title: { text: "Normal Q-Q Plot", font: { size: 13 } },
-    xaxis: { title: "Theoretical Quantiles", gridcolor: "#e2e8f0" },
-    yaxis: { title: "Residuals", gridcolor: "#e2e8f0" },
+    font: { family: "Inter, system-ui, sans-serif", size: 12 },
+    paper_bgcolor: "transparent",
+    plot_bgcolor: "#f8fafc",
+    margin: { t: 36, r: 16, b: 44, l: 50 },
+    title: { text: "Normal Q-Q Plot", font: { size: 12 } },
+    xaxis: { title: "Theoretical Quantiles", gridcolor: "#e2e8f0", automargin: true },
+    yaxis: { title: "Residuals", gridcolor: "#e2e8f0", automargin: true },
     showlegend: false,
+    autosize: true,
   };
-  Plotly.newPlot(divId, [trace, refLine], layout, PLOTLY_CONFIG);
+  const el = document.getElementById(divId);
+  Plotly.newPlot(el, [trace, refLine], layout, PLOTLY_CONFIG);
+  requestAnimationFrame(() => Plotly.Plots.resize(el));
 }
 
 function plotResidualsVsPredicted(divId, residuals, predicted) {
@@ -340,13 +344,19 @@ function plotResidualsVsPredicted(divId, residuals, predicted) {
   };
 
   const layout = {
-    ...PLOT_LAYOUT_BASE,
-    title: { text: "Residuals vs Predicted", font: { size: 13 } },
-    xaxis: { title: "Predicted Values", gridcolor: "#e2e8f0" },
-    yaxis: { title: "Residuals", gridcolor: "#e2e8f0" },
+    font: { family: "Inter, system-ui, sans-serif", size: 12 },
+    paper_bgcolor: "transparent",
+    plot_bgcolor: "#f8fafc",
+    margin: { t: 36, r: 16, b: 44, l: 50 },
+    title: { text: "Residuals vs Predicted", font: { size: 12 } },
+    xaxis: { title: "Predicted Values", gridcolor: "#e2e8f0", automargin: true },
+    yaxis: { title: "Residuals", gridcolor: "#e2e8f0", automargin: true },
     showlegend: false,
+    autosize: true,
   };
-  Plotly.newPlot(divId, [trace, zeroLine], layout, PLOTLY_CONFIG);
+  const el = document.getElementById(divId);
+  Plotly.newPlot(el, [trace, zeroLine], layout, PLOTLY_CONFIG);
+  requestAnimationFrame(() => Plotly.Plots.resize(el));
 }
 
 function _qnorm(p) {

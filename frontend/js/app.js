@@ -746,7 +746,7 @@ function _renderSurfaces(data) {
 }
 
 function _resizeSurfaces() {
-  document.querySelectorAll('[id^="surface-"]').forEach((el) => {
+  document.querySelectorAll('[id^="surface-"], #plot-qq, #plot-residuals-vs-predicted').forEach((el) => {
     if (el._fullLayout) Plotly.Plots.resize(el);
   });
 }
