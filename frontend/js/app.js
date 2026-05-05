@@ -891,6 +891,7 @@ document.addEventListener("keydown", (e) => {
 
 // --- Init ---
 document.addEventListener("DOMContentLoaded", () => {
+  clearSession().catch(() => {});
   _loadDesignConfig();
   initUploadZone($("#drop-zone"), $("#file-input"), $("#folder-input"), handleFilesSelected);
   renderFileList();
