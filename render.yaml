@@ -2,7 +2,7 @@ services:
   - type: web
     name: ftir-spectral-analysis-pipeline
     runtime: python
-    buildCommand: "pip install -r requirements.txt"
+    buildCommand: "pip install -r requirements.txt && git rev-parse --short HEAD > COMMIT"
     startCommand: "uvicorn backend.main:app --host 0.0.0.0 --port $PORT"
     envVars:
       - key: PYTHON_VERSION

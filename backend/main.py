@@ -148,14 +148,8 @@ def _extract_process_kwargs(config: BaselineConfig) -> dict:
 
 @app.get("/api/health")
 async def health():
-    import subprocess
-    try:
-        commit = subprocess.check_output(
-            ["git", "rev-parse", "--short", "HEAD"],
-            stderr=subprocess.DEVNULL, text=True,
-        ).strip()
-    except Exception:
-        commit = "unknown"
+    commit_file = Path(__file__).resolve().parent.parent / "COMMIT"
+    commit = commit_file.read_text().strip() if commit_file.exists() else "dev"
     return {"status": "ok", "commit": commit}
 
 
