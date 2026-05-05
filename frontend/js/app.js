@@ -9,6 +9,8 @@ const state = {
   spectrumData: null,
   resultados: null,
   anovaData: null,
+  designConfig: null,
+  designEditOpen: false,
 };
 
 let _debounceTimer = null;
@@ -94,6 +96,7 @@ async function handleFilesSelected(files) {
     const result = await uploadFiles(files);
     state.files.push(...result.archivos);
     renderFileList();
+    renderUploadSummary();
     updatePreviewSelector();
     statusEl.textContent = `${result.count} file(s) uploaded successfully.`;
     statusEl.className = "mt-3 text-sm text-emerald-600";
@@ -132,8 +135,190 @@ async function handleDeleteFile(fileId) {
     await deleteFile(fileId);
     state.files = state.files.filter((f) => f.id !== fileId);
     renderFileList();
+    renderUploadSummary();
     updatePreviewSelector();
   } catch (err) { alert(`Delete failed: ${err.message}`); }
+}
+
+// --- Upload Summary ---
+function detectDesign(files) {
+  const experiments = [];
+  const replicasByExp = {};
+  let unrecognized = 0;
+
+  for (const f of files) {
+    if (f.experimento == null) { unrecognized++; continue; }
+    experiments.push(f.experimento);
+    if (!replicasByExp[f.experimento]) replicasByExp[f.experimento] = new Set();
+    replicasByExp[f.experimento].add(f.replica);
+  }
+
+  const maxExp = experiments.length > 0 ? Math.max(...experiments) : 0;
+  const maxRep = experiments.length > 0
+    ? Math.max(...Object.values(replicasByExp).map((s) => s.size))
+    : 0;
+
+  const detected = { totalExperiments: maxExp, expectedReplicas: maxRep };
+
+  if (!state.designConfig || state.designConfig.source === "auto") {
+    state.designConfig = { ...detected, source: "auto" };
+    _saveDesignConfig();
+  }
+
+  return { replicasByExp, unrecognized, detected };
+}
+
+function _saveDesignConfig() {
+  if (state.designConfig) {
+    sessionStorage.setItem("ftir_designConfig", JSON.stringify(state.designConfig));
+  }
+}
+
+function _loadDesignConfig() {
+  const raw = sessionStorage.getItem("ftir_designConfig");
+  if (raw) {
+    try { state.designConfig = JSON.parse(raw); } catch (_) {}
+  }
+}
+
+function handleDesignSave() {
+  const expInput = document.getElementById("design-exp-input");
+  const repInput = document.getElementById("design-rep-input");
+  if (!expInput || !repInput) return;
+  const exp = parseInt(expInput.value);
+  const rep = parseInt(repInput.value);
+  if (exp < 1 || rep < 1 || isNaN(exp) || isNaN(rep)) return;
+  state.designConfig = { totalExperiments: exp, expectedReplicas: rep, source: "manual" };
+  state.designEditOpen = false;
+  _saveDesignConfig();
+  renderUploadSummary();
+}
+
+function handleDesignReset() {
+  state.designConfig = null;
+  state.designEditOpen = false;
+  sessionStorage.removeItem("ftir_designConfig");
+  renderUploadSummary();
+}
+
+function toggleDesignEdit() {
+  state.designEditOpen = !state.designEditOpen;
+  renderUploadSummary();
+}
+
+function renderUploadSummary() {
+  const el = $("#upload-summary");
+  if (state.files.length === 0) { el.innerHTML = ""; return; }
+
+  const { replicasByExp, unrecognized, detected } = detectDesign(state.files);
+  const cfg = state.designConfig;
+  const totalExp = cfg.totalExperiments;
+  const expectedRep = cfg.expectedReplicas;
+
+  const expMap = {};
+  for (const f of state.files) {
+    if (f.experimento != null) {
+      expMap[f.experimento] = (expMap[f.experimento] || 0) + 1;
+    }
+  }
+
+  let cells = "";
+  let missing = 0;
+  let incomplete = 0;
+  for (let i = 1; i <= totalExp; i++) {
+    const n = expMap[i] || 0;
+    let cls;
+    if (n === 0) {
+      cls = "bg-slate-100 text-slate-400 border-slate-200";
+      missing++;
+    } else if (n >= expectedRep) {
+      cls = "bg-emerald-50 text-emerald-700 border-emerald-200";
+    } else {
+      cls = "bg-amber-50 text-amber-700 border-amber-200";
+      incomplete++;
+    }
+    cells += `<div class="border rounded-lg p-2 text-center ${cls}">
+      <div class="text-[11px] font-medium leading-tight">Exp ${i}</div>
+      <div class="text-base font-bold">${n}/${expectedRep}</div>
+    </div>`;
+  }
+
+  const warnHtml = unrecognized > 0 ? `
+    <div class="flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-xs">
+      <svg class="w-4 h-4 shrink-0 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"/>
+      </svg>
+      <span><strong>${unrecognized}</strong> file(s) not recognized — filename doesn't match expected pattern</span>
+    </div>` : "";
+
+  const configMismatch = cfg.source === "manual"
+    && (detected.totalExperiments !== cfg.totalExperiments || detected.expectedReplicas !== cfg.expectedReplicas);
+  const mismatchHtml = configMismatch ? `
+    <div class="flex items-center justify-between gap-2 px-3 py-2 rounded-lg bg-blue-50 border border-blue-200 text-blue-800 text-xs">
+      <span>Auto-detected ${detected.totalExperiments} exp × ${detected.expectedReplicas} rep (differs from your config)</span>
+      <div class="flex gap-1 shrink-0">
+        <button onclick="handleDesignReset()" class="px-2 py-0.5 rounded bg-blue-100 hover:bg-blue-200 text-blue-700 font-medium">Apply detected</button>
+      </div>
+    </div>` : "";
+
+  let statusCls, statusMsg;
+  const present = totalExp - missing;
+  if (missing > 0) {
+    statusCls = "bg-red-50 border-red-200 text-red-700";
+    statusMsg = `${missing} of ${totalExp} experiment(s) missing — upload remaining files`;
+  } else if (incomplete > 0) {
+    statusCls = "bg-amber-50 border-amber-200 text-amber-700";
+    statusMsg = `All ${totalExp} experiments present — ${incomplete} with fewer replicas than expected`;
+  } else {
+    statusCls = "bg-emerald-50 border-emerald-200 text-emerald-700";
+    statusMsg = `All ${totalExp} experiments present — ready for processing`;
+  }
+
+  const editIcon = `<button onclick="toggleDesignEdit()" class="p-1 rounded hover:bg-slate-100 text-slate-400 hover:text-slate-600" title="Edit design configuration">
+    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/>
+    </svg>
+  </button>`;
+
+  const sourceLabel = cfg.source === "manual" ? "Manual" : "Auto-detected";
+  const editPanel = state.designEditOpen ? `
+    <div class="mt-2 p-3 rounded-lg bg-slate-50 border border-slate-200 space-y-2">
+      <div class="grid grid-cols-2 gap-3 text-sm">
+        <label class="flex items-center gap-2">
+          <span class="text-slate-600">Experiments:</span>
+          <input id="design-exp-input" type="number" value="${totalExp}" min="1" max="999"
+                 class="w-20 px-2 py-1 border border-slate-300 rounded text-center">
+        </label>
+        <label class="flex items-center gap-2">
+          <span class="text-slate-600">Replicas/exp:</span>
+          <input id="design-rep-input" type="number" value="${expectedRep}" min="1" max="999"
+                 class="w-20 px-2 py-1 border border-slate-300 rounded text-center">
+        </label>
+      </div>
+      <div class="flex gap-2">
+        <button onclick="handleDesignSave()" class="px-3 py-1 text-xs font-medium rounded bg-indigo-600 text-white hover:bg-indigo-700">Save</button>
+        <button onclick="handleDesignReset()" class="px-3 py-1 text-xs font-medium rounded bg-slate-200 text-slate-600 hover:bg-slate-300">Reset to auto-detected</button>
+      </div>
+    </div>` : "";
+
+  el.innerHTML = `
+    <div class="border border-slate-200 rounded-lg p-4 space-y-3">
+      <div class="flex items-center justify-between">
+        <h3 class="text-sm font-semibold text-slate-700">Upload Summary</h3>
+        <div class="flex items-center gap-2">
+          <span class="text-xs text-slate-400">${sourceLabel}: ${totalExp} exp × ${expectedRep} rep</span>
+          ${editIcon}
+        </div>
+      </div>
+      ${editPanel}
+      <div class="grid gap-2" style="grid-template-columns: repeat(auto-fill, minmax(80px, 1fr))">
+        ${cells}
+      </div>
+      ${warnHtml}
+      ${mismatchHtml}
+      <div class="px-3 py-2 rounded-lg border text-xs font-medium ${statusCls}">${statusMsg}</div>
+    </div>`;
 }
 
 function updatePreviewSelector() {
@@ -504,6 +689,7 @@ document.addEventListener("keydown", (e) => {
 
 // --- Init ---
 document.addEventListener("DOMContentLoaded", () => {
+  _loadDesignConfig();
   initUploadZone($("#drop-zone"), $("#file-input"), handleFilesSelected);
   renderFileList();
 });
