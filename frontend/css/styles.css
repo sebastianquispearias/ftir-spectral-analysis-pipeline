@@ -84,3 +84,23 @@ table th {
   border-color: rgba(0,0,0,0.15);
   border-top-color: #4f46e5;
 }
+
+.tool-btn {
+  background: white;
+  color: #64748b;
+  transition: all 0.1s;
+  cursor: pointer;
+}
+.tool-btn:hover {
+  background: #f1f5f9;
+  color: #334155;
+}
+.tool-active {
+  background: #4f46e5 !important;
+  color: white !important;
+}
+
+.cursor-add .draglayer { cursor: crosshair !important; }
+.cursor-move .draglayer { cursor: grab !important; }
+.cursor-remove .draglayer { cursor: pointer !important; }
+.cursor-grabbing .draglayer { cursor: grabbing !important; }

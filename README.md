@@ -152,6 +152,27 @@ Pipeline validated against a reference spectrum manually processed in OriginLab 
 | Peak height | 0.02323 | 0.02335 | 0.5% |
 | Peak area | 0.77313 | 0.75335 | 2.6% |
 
+## Deployment (Render)
+
+The app is configured for Render free tier deployment.
+
+### Deploy to Render
+
+1. Push the code to a GitHub repository
+2. Go to [render.com](https://render.com) and sign up / log in
+3. Click **New → Web Service**
+4. Connect your GitHub repo
+5. Render will auto-detect `render.yaml` — confirm settings:
+   - **Runtime**: Python
+   - **Build command**: `pip install -r requirements.txt`
+   - **Start command**: `uvicorn backend.main:app --host 0.0.0.0 --port $PORT`
+   - **Plan**: Free
+6. Click **Create Web Service**
+7. Wait for the build to finish (~2-3 minutes)
+8. Access the app at the provided `.onrender.com` URL
+
+> **Note**: The free tier spins down after 15 minutes of inactivity. The first request after idle may take 30-60 seconds while the server wakes up.
+
 ## License
 
 MIT

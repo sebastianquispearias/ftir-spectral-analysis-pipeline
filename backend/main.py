@@ -123,12 +123,24 @@ def _parse_filename(nombre: str) -> tuple[int | None, int | None]:
 
 
 def _extract_baseline_kwargs(config: BaselineConfig) -> dict:
+    """Extract kwargs for calcular_baseline (excludes apply_spectrum_smoothing)."""
     return {
         "metodo_suavizado": config.metodo_suavizado.value,
         "ventana_suavizado": config.ventana_suavizado,
         "distance": config.distance,
         "prominence": config.prominence,
         "custom_anchor_points": config.custom_anchor_points,
+    }
+
+def _extract_process_kwargs(config: BaselineConfig) -> dict:
+    """Extract kwargs for procesar_lote (includes apply_spectrum_smoothing)."""
+    return {
+        "metodo_suavizado": config.metodo_suavizado.value,
+        "ventana_suavizado": config.ventana_suavizado,
+        "distance": config.distance,
+        "prominence": config.prominence,
+        "custom_anchor_points": config.custom_anchor_points,
+        "apply_spectrum_smoothing": config.apply_spectrum_smoothing,
     }
 
 
@@ -231,21 +243,32 @@ async def baseline_preview(body: BaselinePreviewRequest, request: Request):
         raise HTTPException(404, "File not found")
     entry = session.files[body.file_id]
 
-    x, y = cargar_espectro(entry.path)
+    from backend.ftir_pipeline import suavizar_espectro
+
+    x, y_raw = cargar_espectro(entry.path)
+    cfg = body.config
+    if cfg.apply_spectrum_smoothing:
+        y = suavizar_espectro(y_raw, metodo=cfg.metodo_suavizado.value, ventana=cfg.ventana_suavizado)
+    else:
+        y = y_raw
+
+    kwargs = _extract_baseline_kwargs(cfg)
     try:
-        baseline, anchor_x, anchor_y = calcular_baseline(x, y, **_extract_baseline_kwargs(body.config))
+        baseline, anchor_x, anchor_y = calcular_baseline(x, y, **kwargs)
     except ValueError as e:
         raise HTTPException(400, str(e))
 
     y_corregido = y - baseline
     return BaselinePreviewResponse(
         x=x.tolist(),
-        y_original=y.tolist(),
+        y_original=y_raw.tolist(),
+        y_smoothed=y.tolist() if cfg.apply_spectrum_smoothing else None,
         y_baseline=baseline.tolist(),
         y_corregido=y_corregido.tolist(),
         anchor_x=anchor_x.tolist(),
         anchor_y=anchor_y.tolist(),
         n_anchor_points=len(anchor_x),
+        smoothing_applied=cfg.apply_spectrum_smoothing,
     )
 
 
@@ -255,7 +278,7 @@ async def process(body: ProcessRequest, request: Request):
     if not session.files:
         raise HTTPException(400, "No files uploaded")
 
-    kwargs = _extract_baseline_kwargs(body.config)
+    kwargs = _extract_process_kwargs(body.config)
     rutas = [fe.path for fe in session.files.values()]
     nombres = {str(fe.path): fe.nombre for fe in session.files.values()}
     start = time.time()

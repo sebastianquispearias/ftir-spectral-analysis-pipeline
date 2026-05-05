@@ -1,0 +1,27 @@
+{
+  "version": "1.0",
+  "exported_at": "2026-05-05T02:04:42.017Z",
+  "spectrum_filename": "Amostra TCNF Paul n.1.1.dpt",
+  "anchor_points_cm": [
+    399.54543,
+    763.7,
+    828.6,
+    1186.3426,
+    1216,
+    1507.3,
+    1684.5,
+    2006.9,
+    2149.3,
+    2369.9,
+    2742.9,
+    2813,
+    2979.17467,
+    3649.3,
+    3997.50329
+  ],
+  "smoothing_config": {
+    "method": "AAV",
+    "window": 5,
+    "apply_spectrum_smoothing": false
+  }
+}

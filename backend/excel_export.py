@@ -28,6 +28,7 @@ def generar_excel(
         _hoja_anova(wb, anova_resultado)
         _hoja_coeficientes(wb, anova_resultado)
     _hoja_info(wb, anchor_points, rangos)
+    _hoja_anchor_config(wb, anchor_points)
 
     del wb["Sheet"]
     wb.save(str(ruta_salida))
@@ -180,5 +181,41 @@ def _hoja_info(
     for i, (param, val) in enumerate(info, 2):
         ws.cell(row=i, column=1, value=param).font = Font(bold=True)
         ws.cell(row=i, column=2, value=val)
+
+    _autofit_columns(ws)
+
+
+def _hoja_anchor_config(wb: Workbook, config: dict | None) -> None:
+    ws = wb.create_sheet("Anchor Points Config")
+
+    if not config or not isinstance(config, dict):
+        ws.cell(row=1, column=1, value="No configuration data available")
+        return
+
+    _write_header(ws, ["Parameter", "Value"])
+    row = 2
+
+    for key, val in config.items():
+        if key == "custom_anchor_points" and val is not None:
+            ws.cell(row=row, column=1, value="Mode").font = Font(bold=True)
+            ws.cell(row=row, column=2, value="Manual (custom anchor points)")
+            row += 1
+            ws.cell(row=row, column=1, value="N anchor points").font = Font(bold=True)
+            ws.cell(row=row, column=2, value=len(val))
+            row += 2
+            _write_header(ws, ["Index", "Wavenumber (cm-1)"], row)
+            row += 1
+            for i, cm in enumerate(sorted(val), 1):
+                ws.cell(row=row, column=1, value=i)
+                ws.cell(row=row, column=2, value=cm).number_format = "0.0"
+                row += 1
+        elif key == "custom_anchor_points" and val is None:
+            ws.cell(row=row, column=1, value="Mode").font = Font(bold=True)
+            ws.cell(row=row, column=2, value="Automatic (valley detection)")
+            row += 1
+        else:
+            ws.cell(row=row, column=1, value=str(key)).font = Font(bold=True)
+            ws.cell(row=row, column=2, value=str(val))
+            row += 1
 
     _autofit_columns(ws)

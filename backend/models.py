@@ -30,6 +30,14 @@ class BaselineConfig(BaseModel):
     ventana_suavizado: int = Field(default=5, ge=3, le=51)
     distance: int = Field(default=40, ge=5, le=200)
     prominence: float = Field(default=0.0003, gt=0, le=1.0)
+    apply_spectrum_smoothing: bool = Field(
+        default=False,
+        description=(
+            "If True, smoothing is applied to the spectrum before baseline "
+            "subtraction. If False, smoothing is only used internally for "
+            "anchor point detection."
+        ),
+    )
     custom_anchor_points: list[float] | None = Field(
         default=None,
         description=(
@@ -47,11 +55,13 @@ class BaselinePreviewRequest(BaseModel):
 class BaselinePreviewResponse(BaseModel):
     x: list[float]
     y_original: list[float]
+    y_smoothed: list[float] | None = None
     y_baseline: list[float]
     y_corregido: list[float]
     anchor_x: list[float]
     anchor_y: list[float]
     n_anchor_points: int
+    smoothing_applied: bool
 
 
 class ProcessRequest(BaseModel):

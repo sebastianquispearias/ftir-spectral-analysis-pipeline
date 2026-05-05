@@ -73,18 +73,107 @@
         </div>
       </div>
 
-      <div class="space-y-4">
-        <div class="flex items-center gap-3 mb-2">
-          <span id="anchor-count" class="text-xs text-slate-400"></span>
+      <!-- Toolbar -->
+      <div class="flex items-center gap-2 mb-3 flex-wrap">
+        <div class="flex rounded-lg border border-slate-300 overflow-hidden">
+          <button id="tool-add" onclick="setTool('add')"
+                  class="tool-btn px-3 py-1.5 text-xs font-medium flex items-center gap-1.5"
+                  title="Add anchor point (A)">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+            Add
+          </button>
+          <button id="tool-move" onclick="setTool('move')"
+                  class="tool-btn tool-active px-3 py-1.5 text-xs font-medium flex items-center gap-1.5 border-l border-slate-300"
+                  title="Drag anchor points (M)">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 11l5-5m0 0l5 5m-5-5v12"/></svg>
+            Move
+          </button>
+          <button id="tool-remove" onclick="setTool('remove')"
+                  class="tool-btn px-3 py-1.5 text-xs font-medium flex items-center gap-1.5 border-l border-slate-300"
+                  title="Remove anchor point (D)">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+            Remove
+          </button>
         </div>
 
-        <div id="baseline-plot" class="w-full h-96 bg-slate-50 rounded-lg"></div>
+        <div class="h-5 w-px bg-slate-200"></div>
 
-        <p class="text-xs text-slate-400">
-          Anchor points are detected automatically using AAV smoothing + valley detection.
-          Use zoom/pan on the plot, double-click to reset view.
-        </p>
+        <button onclick="handleUndo()" class="btn-secondary text-xs py-1.5" title="Undo (Ctrl+Z)">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a5 5 0 015 5v2M3 10l4-4M3 10l4 4"/></svg>
+        </button>
+        <button onclick="handleResetToAuto()" class="btn-secondary text-xs py-1.5">Reset Auto</button>
 
+        <div class="h-5 w-px bg-slate-200"></div>
+
+        <button onclick="handleExportPoints()" class="btn-secondary text-xs py-1.5" title="Export anchor points as JSON">
+          <svg class="w-3.5 h-3.5 inline -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+          Export
+        </button>
+        <button onclick="$('#import-file-input').click()" class="btn-secondary text-xs py-1.5" title="Import anchor points from JSON">
+          <svg class="w-3.5 h-3.5 inline -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+          Import
+        </button>
+        <input type="file" id="import-file-input" class="hidden" accept=".json" onchange="handleImportPoints(this)">
+
+        <div class="h-5 w-px bg-slate-200"></div>
+
+        <span id="mode-badge" class="text-xs px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 font-medium">Auto</span>
+        <span id="anchor-count" class="text-xs text-slate-400"></span>
+
+        <div class="flex-1"></div>
+
+        <button onclick="$('#smoothing-panel').classList.toggle('hidden')" class="text-xs text-slate-400 hover:text-slate-600 flex items-center gap-1">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+          Smoothing
+        </button>
+      </div>
+
+      <!-- Smoothing settings -->
+      <div id="smoothing-panel" class="hidden mb-3 p-3 bg-slate-50 rounded-lg">
+        <label class="flex items-center gap-2 mb-3 cursor-pointer">
+          <input type="checkbox" id="cfg-apply-smoothing" onchange="handleConfigChange()"
+                 class="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500">
+          <span class="text-xs font-medium text-slate-700">Apply smoothing to spectrum</span>
+          <span class="text-xs text-slate-400">(disable to process raw data)</span>
+        </label>
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <div>
+            <label class="text-xs text-slate-500 block mb-1">Method</label>
+            <select id="cfg-method" onchange="handleConfigChange()"
+                    class="w-full text-xs border border-slate-300 rounded-lg px-2 py-1.5">
+              <option value="AAV" selected>Adjacent Averaging</option>
+              <option value="SG">Savitzky-Golay</option>
+              <option value="PF">Percentile (Median)</option>
+              <option value="FFT">FFT Low-pass</option>
+              <option value="Binomial">Binomial</option>
+            </select>
+          </div>
+          <div>
+            <label class="text-xs text-slate-500 block mb-1">Window: <span id="cfg-window-val">5</span></label>
+            <input type="range" id="cfg-window" min="3" max="31" step="2" value="5"
+                   oninput="$('#cfg-window-val').textContent=this.value; handleConfigChange()"
+                   class="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600">
+          </div>
+          <div>
+            <label class="text-xs text-slate-500 block mb-1">Min separation: <span id="cfg-dist-val">40</span></label>
+            <input type="range" id="cfg-distance" min="5" max="100" step="5" value="40"
+                   oninput="$('#cfg-dist-val').textContent=this.value; handleConfigChange()"
+                   class="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600">
+          </div>
+          <div>
+            <label class="text-xs text-slate-500 block mb-1">Prominence: <span id="cfg-prom-val">0.0003</span></label>
+            <input type="range" id="cfg-prominence" min="-5" max="-1" step="0.25" value="-3.52"
+                   oninput="let v=Math.pow(10,this.value).toFixed(5); $('#cfg-prom-val').textContent=v; handleConfigChange()"
+                   class="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600">
+          </div>
+        </div>
+      </div>
+
+      <!-- Plot -->
+      <div id="baseline-plot" class="w-full h-[500px] bg-slate-50 rounded-lg mb-4"></div>
+
+      <!-- Process -->
+      <div class="flex items-center gap-3">
         <button id="btn-process" onclick="handleProcess()" class="btn-primary">
           Process All Spectra
         </button>
@@ -221,6 +310,11 @@
   <footer class="max-w-6xl mx-auto px-6 py-6 text-center text-xs text-slate-400">
     FTIR Spectral Analysis Pipeline &mdash; Baseline correction &amp; Box-Behnken ANOVA
   </footer>
+
+  <!-- Toast notifications -->
+  <div id="toast" class="fixed bottom-6 right-6 z-50 hidden">
+    <div id="toast-content" class="px-4 py-2.5 rounded-lg shadow-lg text-sm font-medium"></div>
+  </div>
 
   <script src="/js/api.js"></script>
   <script src="/js/upload.js"></script>

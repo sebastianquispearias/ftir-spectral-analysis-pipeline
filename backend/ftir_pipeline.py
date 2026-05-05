@@ -193,6 +193,7 @@ def procesar_archivo(
     distance: int = PEAK_FIND_DISTANCE,
     prominence: float = PEAK_FIND_PROMINENCE,
     custom_anchor_points: list[float] | None = None,
+    apply_spectrum_smoothing: bool = False,
     rango_carboxilato: tuple[float, float] = RANGO_CARBOXILATO,
     rango_referencia: tuple[float, float] = RANGO_REFERENCIA,
     nombre_original: str | None = None,
@@ -200,7 +201,12 @@ def procesar_archivo(
     """Full processing pipeline for a single .dpt file."""
     ruta = Path(ruta)
     nombre = nombre_original or ruta.name
-    x, y = cargar_espectro(ruta)
+    x, y_raw = cargar_espectro(ruta)
+
+    if apply_spectrum_smoothing:
+        y = suavizar_espectro(y_raw, metodo=metodo_suavizado, ventana=ventana_suavizado)
+    else:
+        y = y_raw
 
     baseline, anchor_x, anchor_y = calcular_baseline(
         x, y, metodo_suavizado, ventana_suavizado, distance, prominence,
@@ -239,6 +245,7 @@ def procesar_lote(
     distance: int = PEAK_FIND_DISTANCE,
     prominence: float = PEAK_FIND_PROMINENCE,
     custom_anchor_points: list[float] | None = None,
+    apply_spectrum_smoothing: bool = False,
     progress_callback: Callable[[int, int], None] | None = None,
     executor: Executor | None = None,
     nombres_originales: dict[str, str] | None = None,
@@ -259,7 +266,7 @@ def procesar_lote(
             future = executor.submit(
                 procesar_archivo, ruta,
                 metodo_suavizado, ventana_suavizado, distance, prominence,
-                custom_anchor_points,
+                custom_anchor_points, apply_spectrum_smoothing,
                 nombre_original=nombre,
             )
             futures[future] = ruta

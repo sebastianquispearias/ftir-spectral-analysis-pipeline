@@ -1,16 +1,44 @@
 const API_BASE = window.location.origin + "/api";
 
+let _slowLoadTimer = null;
+
+function _showSlowLoadBanner() {
+  if (document.getElementById("slow-load-banner")) return;
+  const banner = document.createElement("div");
+  banner.id = "slow-load-banner";
+  banner.className = "fixed top-0 left-0 right-0 z-50 bg-amber-50 border-b border-amber-200 px-4 py-3 text-center text-sm text-amber-800 shadow-sm";
+  banner.textContent = "Loading... (first load may take up to a minute if the server was idle)";
+  document.body.appendChild(banner);
+}
+
+function _hideSlowLoadBanner() {
+  const banner = document.getElementById("slow-load-banner");
+  if (banner) banner.remove();
+}
+
 async function apiRequest(path, options = {}) {
   const url = `${API_BASE}${path}`;
-  const res = await fetch(url, {
-    credentials: "include",
-    ...options,
-  });
-  if (!res.ok) {
-    const detail = await res.json().catch(() => ({}));
-    throw new Error(detail.detail || `HTTP ${res.status}`);
+  _slowLoadTimer = setTimeout(_showSlowLoadBanner, 5000);
+  try {
+    const res = await fetch(url, {
+      credentials: "include",
+      ...options,
+    });
+    clearTimeout(_slowLoadTimer);
+    _hideSlowLoadBanner();
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      let msg = body.detail;
+      if (Array.isArray(msg)) msg = msg.map((e) => e.msg || JSON.stringify(e)).join("; ");
+      if (typeof msg === "object") msg = JSON.stringify(msg);
+      throw new Error(msg || `HTTP ${res.status}`);
+    }
+    return res;
+  } catch (err) {
+    clearTimeout(_slowLoadTimer);
+    _hideSlowLoadBanner();
+    throw err;
   }
-  return res;
 }
 
 async function uploadFiles(fileList) {
