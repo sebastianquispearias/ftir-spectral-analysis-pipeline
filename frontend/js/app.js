@@ -88,7 +88,7 @@ function handleResetToAuto() {
 }
 
 // --- Upload ---
-async function handleFilesSelected(files) {
+async function handleFilesSelected(files, meta = {}) {
   const statusEl = $("#upload-status");
   statusEl.textContent = `Uploading ${files.length} file(s)...`;
   statusEl.className = "mt-3 text-sm text-slate-500";
@@ -98,7 +98,9 @@ async function handleFilesSelected(files) {
     renderFileList();
     renderUploadSummary();
     updatePreviewSelector();
-    statusEl.textContent = `${result.count} file(s) uploaded successfully.`;
+    const source = meta.source ? ` from "${meta.source}"` : "";
+    const ignoredNote = meta.ignored > 0 ? ` (${meta.ignored} non-.dpt file(s) ignored)` : "";
+    statusEl.textContent = `${result.count} .dpt file(s) uploaded${source}.${ignoredNote}`;
     statusEl.className = "mt-3 text-sm text-emerald-600";
     revealSection("#section-baseline");
     if (state.files.length > 0 && !state.previewFileId) {
@@ -700,6 +702,6 @@ document.addEventListener("keydown", (e) => {
 // --- Init ---
 document.addEventListener("DOMContentLoaded", () => {
   _loadDesignConfig();
-  initUploadZone($("#drop-zone"), $("#file-input"), handleFilesSelected);
+  initUploadZone($("#drop-zone"), $("#file-input"), $("#folder-input"), handleFilesSelected);
   renderFileList();
 });
