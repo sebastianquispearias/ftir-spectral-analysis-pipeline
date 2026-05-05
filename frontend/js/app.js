@@ -607,11 +607,18 @@ function handleExportPoints() {
   const previewFile = state.files.find((f) => f.id === state.previewFileId);
   const filename = previewFile ? previewFile.nombre : "unknown";
 
+  const sortedX = [...state.customAnchors].sort((a, b) => a - b);
+  const yVals = getAnchorYValues();
+  const sortedIndices = state.customAnchors
+    .map((x, i) => ({ x, y: yVals[i], i }))
+    .sort((a, b) => a.x - b.x);
+
   const data = {
-    version: "1.0",
+    version: "1.1",
     exported_at: new Date().toISOString(),
     spectrum_filename: filename,
-    anchor_points_cm: [...state.customAnchors].sort((a, b) => a - b),
+    anchor_points_cm: sortedX,
+    anchor_points: sortedIndices.map((p) => ({ x: p.x, y: p.y })),
     smoothing_config: {
       method: $("#cfg-method").value,
       window: parseInt($("#cfg-window").value),
@@ -641,17 +648,20 @@ function handleImportPoints(input) {
     try {
       const data = JSON.parse(e.target.result);
 
-      if (!data.anchor_points_cm || !Array.isArray(data.anchor_points_cm)) {
-        showToast("Invalid file: missing anchor_points_cm array", "error");
+      let points;
+      if (data.anchor_points && Array.isArray(data.anchor_points)) {
+        points = data.anchor_points.map((p) => Number(p.x)).filter((n) => !isNaN(n));
+      } else if (data.anchor_points_cm && Array.isArray(data.anchor_points_cm)) {
+        points = data.anchor_points_cm.map(Number).filter((n) => !isNaN(n));
+      } else {
+        showToast("Invalid file: missing anchor_points or anchor_points_cm", "error");
         return;
       }
 
-      if (data.anchor_points_cm.length < 4) {
+      if (points.length < 4) {
         showToast("Need at least 4 anchor points", "error");
         return;
       }
-
-      const points = data.anchor_points_cm.map(Number).filter((n) => !isNaN(n));
 
       if (state.spectrumData) {
         const xMin = Math.min(...state.spectrumData.x);
