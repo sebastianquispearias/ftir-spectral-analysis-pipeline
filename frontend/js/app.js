@@ -734,4 +734,8 @@ document.addEventListener("DOMContentLoaded", () => {
   _loadDesignConfig();
   initUploadZone($("#drop-zone"), $("#file-input"), $("#folder-input"), handleFilesSelected);
   renderFileList();
+  fetch("/api/health").then((r) => r.json()).then((d) => {
+    const el = document.getElementById("build-info");
+    if (el && d.commit) el.textContent = `build ${d.commit}`;
+  }).catch(() => {});
 });
