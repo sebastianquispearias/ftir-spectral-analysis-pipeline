@@ -330,7 +330,7 @@ async def run_anova(body: AnovaRequest, request: Request):
         raise HTTPException(400, "No results yet. Run /api/process first.")
 
     try:
-        resultado = correr_anova_completo(session.resultados, body.variable_respuesta.value)
+        resultado = correr_anova_completo(session.resultados, body.variable_respuesta.value, maximize=body.maximize)
     except Exception as e:
         raise HTTPException(400, f"ANOVA failed: {e}")
 

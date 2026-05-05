@@ -548,10 +548,11 @@ function handleVariableChange(v) {
 async function handleAnova() {
   const btn = $("#btn-anova");
   const variable = $("#anova-variable").value;
+  const maximize = $("#anova-objective").value === "maximize";
   btn.disabled = true;
   btn.innerHTML = '<span class="spinner"></span> Running ANOVA...';
   try {
-    const result = await runAnova(variable);
+    const result = await runAnova(variable, maximize);
     state.anovaData = result;
     renderAnovaResults(result);
     revealSection("#section-anova");
@@ -602,12 +603,16 @@ function renderAnovaResults(data) {
 
   const o = data.condicion_optima;
   const predY = o.predicted_y != null ? o.predicted_y.toFixed(4) : "-";
+  const isMax = o.objective === "maximize";
+  const predLabel = isMax ? "Maximum predicted" : "Minimum predicted";
+  const predColor = isMax ? "bg-emerald-50 border-emerald-200 text-emerald-700" : "bg-amber-50 border-amber-200 text-amber-700";
+  const predLabelColor = isMax ? "text-emerald-500" : "text-amber-500";
   $("#optimal-condition").innerHTML = `
     <div class="grid grid-cols-4 gap-4 text-center">
       <div class="p-3 bg-slate-50 rounded-lg"><div class="text-xs text-slate-500 uppercase">Temperature</div><div class="text-lg font-semibold">${o.temperatura.toFixed(1)} °C</div></div>
       <div class="p-3 bg-slate-50 rounded-lg"><div class="text-xs text-slate-500 uppercase">Time</div><div class="text-lg font-semibold">${o.tiempo.toFixed(1)} min</div></div>
       <div class="p-3 bg-slate-50 rounded-lg"><div class="text-xs text-slate-500 uppercase">NaClO</div><div class="text-lg font-semibold">${o.naclo.toFixed(2)} mL</div></div>
-      <div class="p-3 bg-indigo-50 rounded-lg border border-indigo-200"><div class="text-xs text-indigo-500 uppercase">Predicted</div><div class="text-lg font-semibold text-indigo-700">${predY}</div></div>
+      <div class="p-3 ${predColor} rounded-lg border"><div class="text-xs ${predLabelColor} uppercase">${predLabel}</div><div class="text-lg font-semibold">${predY}</div></div>
     </div>`;
 
   if (data.superficies && data.superficies.length > 0) {

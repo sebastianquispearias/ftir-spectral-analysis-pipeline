@@ -91,11 +91,11 @@ async function getResults() {
   return res.json();
 }
 
-async function runAnova(variableRespuesta = "area_carb") {
+async function runAnova(variableRespuesta = "area_carb", maximize = true) {
   const res = await apiRequest("/anova", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ variable_respuesta: variableRespuesta }),
+    body: JSON.stringify({ variable_respuesta: variableRespuesta, maximize }),
   });
   return res.json();
 }

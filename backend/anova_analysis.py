@@ -3,6 +3,7 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 import statsmodels.api as sm
+from scipy.optimize import minimize
 from statsmodels.formula.api import ols
 
 
@@ -32,6 +33,7 @@ def preparar_datos_anova(df_resultados: pd.DataFrame) -> pd.DataFrame:
 def correr_anova_completo(
     df_resultados: pd.DataFrame,
     variable_respuesta: str = "area_carb",
+    maximize: bool = True,
 ) -> dict:
     """Fit a full quadratic model on individual replicas.
 
@@ -65,7 +67,7 @@ def correr_anova_completo(
     p_values = {name: float(val) for name, val in modelo.pvalues.items()}
     terminos_significativos = [name for name, p in p_values.items() if p < 0.05 and name != "Intercept"]
 
-    condicion_optima = _calcular_optimo(modelo)
+    condicion_optima = _calcular_optimo(modelo, maximize=maximize)
 
     tabla_dict = {
         "fuente": tabla_anova.index.tolist(),
@@ -127,31 +129,26 @@ def superficie_respuesta(
     }
 
 
-def _calcular_optimo(modelo) -> dict[str, float]:
-    """Estimate optimal conditions from the quadratic model gradient."""
-    params = modelo.params
+def _calcular_optimo(modelo, maximize: bool = True) -> dict[str, float]:
+    """Find optimal conditions via bounded optimization (L-BFGS-B)."""
+    def objective(x):
+        pred = float(modelo.predict(
+            pd.DataFrame([{"X1": x[0], "X2": x[1], "X3": x[2]}])
+        ).iloc[0])
+        return -pred if maximize else pred
 
-    b = np.array([
-        params.get("X1", 0),
-        params.get("X2", 0),
-        params.get("X3", 0),
-    ])
+    starts = [
+        (0, 0, 0), (1, 1, 1), (-1, -1, -1), (1, -1, 1), (-1, 1, -1),
+        (-1, -1, 1), (1, 1, -1), (1, -1, -1), (-1, 1, 1),
+    ]
+    best = None
+    for x0 in starts:
+        res = minimize(objective, x0=x0, bounds=[(-1, 1)] * 3, method="L-BFGS-B")
+        if best is None or res.fun < best.fun:
+            best = res
 
-    B = np.array([
-        [params.get("I(X1 ** 2)", 0), params.get("X1:X2", 0) / 2, params.get("X1:X3", 0) / 2],
-        [params.get("X1:X2", 0) / 2, params.get("I(X2 ** 2)", 0), params.get("X2:X3", 0) / 2],
-        [params.get("X1:X3", 0) / 2, params.get("X2:X3", 0) / 2, params.get("I(X3 ** 2)", 0)],
-    ])
-
-    try:
-        x_opt = -0.5 * np.linalg.solve(B, b)
-    except np.linalg.LinAlgError:
-        x_opt = np.array([0.0, 0.0, 0.0])
-
-    x_opt = np.clip(x_opt, -1, 1)
-
-    pred_df = pd.DataFrame([{"X1": x_opt[0], "X2": x_opt[1], "X3": x_opt[2]}])
-    predicted_y = float(modelo.predict(pred_df).iloc[0])
+    x_opt = best.x
+    y_opt = -best.fun if maximize else best.fun
 
     return {
         "X1": float(x_opt[0]),
@@ -160,7 +157,8 @@ def _calcular_optimo(modelo) -> dict[str, float]:
         "temperatura": float(30 + 10 * x_opt[0]),
         "tiempo": float(90 + 30 * x_opt[1]),
         "naclo": float(8.0 + 1.95 * x_opt[2]),
-        "predicted_y": predicted_y,
+        "predicted_y": y_opt,
+        "objective": "maximize" if maximize else "minimize",
     }
 
 

@@ -124,13 +124,23 @@ class TestAnovaCompleto:
 
     def test_condicion_optima_en_rango(self):
         df = _generar_resultados_sinteticos()
-        resultado = correr_anova_completo(df, "area_carb")
+        resultado = correr_anova_completo(df, "area_carb", maximize=True)
         opt = resultado["condicion_optima"]
         assert -1 <= opt["X1"] <= 1
         assert -1 <= opt["X2"] <= 1
         assert -1 <= opt["X3"] <= 1
         assert 20 <= opt["temperatura"] <= 40
         assert 60 <= opt["tiempo"] <= 120
+        assert opt["objective"] == "maximize"
+        assert opt["predicted_y"] is not None
+
+    def test_maximize_vs_minimize(self):
+        df = _generar_resultados_sinteticos()
+        r_max = correr_anova_completo(df, "area_carb", maximize=True)
+        r_min = correr_anova_completo(df, "area_carb", maximize=False)
+        assert r_max["condicion_optima"]["predicted_y"] > r_min["condicion_optima"]["predicted_y"]
+        assert r_max["condicion_optima"]["objective"] == "maximize"
+        assert r_min["condicion_optima"]["objective"] == "minimize"
 
 
 class TestSuperficieRespuesta:

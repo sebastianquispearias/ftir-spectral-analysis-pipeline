@@ -96,6 +96,7 @@ class VariableRespuesta(str, Enum):
 
 class AnovaRequest(BaseModel):
     variable_respuesta: VariableRespuesta = VariableRespuesta.area_carb
+    maximize: bool = True
 
 
 class SurfaceData(BaseModel):
@@ -117,5 +118,5 @@ class AnovaResponse(BaseModel):
     p_values: dict[str, float]
     modelo_significativo: bool
     terminos_significativos: list[str]
-    condicion_optima: dict[str, float]
+    condicion_optima: dict[str, float | str]
     superficies: list[SurfaceData]
