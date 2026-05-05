@@ -105,6 +105,15 @@ async function loadExamples() {
   return res.json();
 }
 
+async function updatePattern(pattern) {
+  const res = await apiRequest("/update-pattern", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ pattern }),
+  });
+  return res.json();
+}
+
 function getExcelUrl() {
   return `${API_BASE}/export/excel`;
 }

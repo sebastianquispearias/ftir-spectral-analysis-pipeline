@@ -115,6 +115,7 @@ async function handleLoadExamples() {
     statusEl.textContent = `${result.count} synthetic spectra loaded (Box-Behnken 15x10).`;
     statusEl.className = "mt-3 text-sm text-emerald-600";
     revealSection("#section-baseline");
+    _showPatternConfig();
     if (state.files.length > 0 && !state.previewFileId) {
       state.previewFileId = state.files[0].id;
       $("#preview-file-select").value = state.previewFileId;
@@ -156,6 +157,7 @@ async function handleFilesSelected(files, meta = {}) {
     statusEl.textContent = `${result.count} .dpt file(s) uploaded${source}.${replacedNote}${ignoredNote}`;
     statusEl.className = "mt-3 text-sm text-emerald-600";
     revealSection("#section-baseline");
+    _showPatternConfig();
     if (state.files.length > 0 && !state.previewFileId) {
       state.previewFileId = state.files[0].id;
       $("#preview-file-select").value = state.previewFileId;
@@ -259,6 +261,60 @@ function handleDesignReset() {
 function toggleDesignEdit() {
   state.designEditOpen = !state.designEditOpen;
   renderUploadSummary();
+}
+
+// --- Filename pattern ---
+function _showPatternConfig() {
+  const el = $("#pattern-config");
+  if (el && state.files.length > 0) el.classList.remove("hidden");
+}
+
+async function handleApplyPattern() {
+  const input = $("#filename-pattern");
+  const statusEl = $("#pattern-status");
+  const pattern = input.value.trim();
+  if (!pattern) return;
+  try {
+    const result = await updatePattern(pattern);
+    state.files = result.archivos;
+    renderFileList();
+    renderUploadSummary();
+    const recognized = state.files.filter((f) => f.experimento != null).length;
+    statusEl.textContent = `Pattern applied: ${recognized}/${state.files.length} files matched.`;
+    statusEl.className = "text-xs text-emerald-600";
+  } catch (err) {
+    statusEl.textContent = `Error: ${err.message}`;
+    statusEl.className = "text-xs text-red-600";
+  }
+}
+
+function handleAutoDetectPattern() {
+  if (state.files.length === 0) return;
+  const names = state.files.map((f) => f.nombre);
+  const detected = _inferPattern(names);
+  if (detected) {
+    $("#filename-pattern").value = detected;
+    $("#pattern-status").textContent = `Auto-detected pattern. Click Apply to use it.`;
+    $("#pattern-status").className = "text-xs text-indigo-600";
+  } else {
+    $("#pattern-status").textContent = "Could not auto-detect a pattern with 2 numeric groups.";
+    $("#pattern-status").className = "text-xs text-amber-600";
+  }
+}
+
+function _inferPattern(names) {
+  if (names.length === 0) return null;
+  const sample = names[0];
+  const nums = [...sample.matchAll(/\d+/g)];
+  if (nums.length < 2) return null;
+  const last2 = nums.slice(-2);
+  let pattern = sample.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const idx1 = last2[1].index;
+  const idx0 = last2[0].index;
+  pattern = pattern.substring(0, idx1) + "(\\d+)" + pattern.substring(idx1 + last2[1][0].length);
+  const shift = "(\\d+)".length - last2[1][0].length;
+  pattern = pattern.substring(0, idx0) + "(\\d+)" + pattern.substring(idx0 + last2[0][0].length);
+  return pattern;
 }
 
 function renderUploadSummary() {

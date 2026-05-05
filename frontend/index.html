@@ -81,6 +81,23 @@
       <div id="upload-status" class="mt-2 text-sm"></div>
       <div id="file-list" class="mt-4 max-h-48 overflow-y-auto space-y-0.5"></div>
       <div id="upload-summary" class="mt-4"></div>
+
+      <!-- Filename pattern config -->
+      <div id="pattern-config" class="mt-4 hidden">
+        <div class="border border-slate-200 rounded-lg p-4 space-y-2">
+          <div class="flex items-center justify-between">
+            <h3 class="text-sm font-semibold text-slate-700">Filename Pattern</h3>
+            <button onclick="handleAutoDetectPattern()" class="text-xs text-indigo-600 hover:text-indigo-800 font-medium">Auto-detect</button>
+          </div>
+          <div class="flex items-center gap-2">
+            <input id="filename-pattern" type="text" value="(?:Amostra[_ ]TCNF[_ ]Paul[_ ]|Synthetic[_ ]TCNF[_ ])n[._](\d+)[._](\d+)\.dpt"
+                   class="flex-1 text-xs font-mono px-3 py-1.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                   placeholder="regex with 2 capture groups: (experiment)(replica)">
+            <button onclick="handleApplyPattern()" class="btn-secondary text-xs py-1.5 px-3">Apply</button>
+          </div>
+          <p id="pattern-status" class="text-xs text-slate-400">Regex must have exactly 2 capture groups: (experiment) and (replica).</p>
+        </div>
+      </div>
     </section>
 
     <!-- Section: Baseline Configuration -->

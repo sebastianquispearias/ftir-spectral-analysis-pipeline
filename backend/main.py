@@ -153,6 +153,41 @@ async def health():
     return {"status": "ok", "commit": commit}
 
 
+@app.post("/api/update-pattern")
+async def update_pattern(request: Request):
+    import re as re_module
+    body = await request.json()
+    pattern_str = body.get("pattern", "")
+    session_id, session = _get_session(request)
+
+    try:
+        pat = re_module.compile(pattern_str)
+    except re_module.error as e:
+        raise HTTPException(400, f"Invalid regex: {e}")
+
+    if pat.groups != 2:
+        raise HTTPException(400, f"Regex must have exactly 2 capture groups, got {pat.groups}")
+
+    updated = []
+    for fe in session.files.values():
+        match = pat.search(fe.nombre)
+        if match:
+            fe.experimento = int(match.group(1))
+            fe.replica = int(match.group(2))
+        else:
+            fe.experimento = None
+            fe.replica = None
+        updated.append(FileInfo(
+            id=fe.id, nombre=fe.nombre, tamano=fe.tamano,
+            experimento=fe.experimento, replica=fe.replica,
+        ))
+
+    from starlette.responses import JSONResponse
+    resp = JSONResponse(content={"archivos": [f.model_dump() for f in updated], "count": len(updated)})
+    resp.set_cookie("session_id", session_id, httponly=True, samesite="lax")
+    return resp
+
+
 @app.post("/api/upload", response_model=FileUploadResponse)
 async def upload(request: Request, files: list[UploadFile]):
     session_id, session = _get_session(request)
