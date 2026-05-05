@@ -73,46 +73,22 @@
         </div>
       </div>
 
-      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <!-- Anchor points controls -->
-        <div class="space-y-4">
-          <div>
-            <div class="flex items-center justify-between mb-2">
-              <label class="text-xs font-medium text-slate-500 uppercase">Anchor Points (cm⁻¹)</label>
-              <span id="anchor-count" class="text-xs text-slate-400">0 points</span>
-            </div>
-            <div id="anchor-list" class="flex flex-wrap gap-1.5 mb-3"></div>
-          </div>
-
-          <div class="flex gap-2">
-            <input type="number" id="anchor-input" placeholder="cm⁻¹"
-                   class="flex-1 px-3 py-1.5 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                   min="400" max="4000" step="1"
-                   onkeydown="if(event.key==='Enter') handleAddAnchorPoint()">
-            <button onclick="handleAddAnchorPoint()" class="btn-secondary text-xs">Add</button>
-          </div>
-
-          <div class="flex gap-2">
-            <button onclick="handleResetAnchors()" class="btn-secondary text-xs flex-1">Reset Defaults</button>
-            <button id="btn-auto-detect" onclick="handleAutoDetect()" class="btn-secondary text-xs flex-1">Auto-detect</button>
-          </div>
-
-          <p class="text-xs text-slate-400 leading-relaxed">
-            Click on the spectrum to add a point. Click a diamond to remove it. Use zoom/pan, then double-click to reset view.
-          </p>
-
-          <hr class="border-slate-200">
-
-          <button id="btn-process" onclick="handleProcess()" class="btn-primary w-full">
-            Process All Spectra
-          </button>
-          <div id="process-status" class="text-sm"></div>
+      <div class="space-y-4">
+        <div class="flex items-center gap-3 mb-2">
+          <span id="anchor-count" class="text-xs text-slate-400"></span>
         </div>
 
-        <!-- Baseline preview plot -->
-        <div class="lg:col-span-2">
-          <div id="baseline-plot" class="w-full h-96 bg-slate-50 rounded-lg"></div>
-        </div>
+        <div id="baseline-plot" class="w-full h-96 bg-slate-50 rounded-lg"></div>
+
+        <p class="text-xs text-slate-400">
+          Anchor points are detected automatically using AAV smoothing + valley detection.
+          Use zoom/pan on the plot, double-click to reset view.
+        </p>
+
+        <button id="btn-process" onclick="handleProcess()" class="btn-primary">
+          Process All Spectra
+        </button>
+        <div id="process-status" class="text-sm"></div>
       </div>
     </section>
 

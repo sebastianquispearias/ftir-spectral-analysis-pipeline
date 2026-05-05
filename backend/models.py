@@ -2,8 +2,6 @@ from enum import Enum
 
 from pydantic import BaseModel, Field
 
-from backend.config import MIN_ANCHOR_POINTS, MAX_ANCHOR_POINTS
-
 
 class FileInfo(BaseModel):
     id: str
@@ -18,16 +16,32 @@ class FileUploadResponse(BaseModel):
     count: int
 
 
-class AnchorPointsField(BaseModel):
-    anchor_points: list[float] = Field(
-        min_length=MIN_ANCHOR_POINTS,
-        max_length=MAX_ANCHOR_POINTS,
-        description="Anchor points in cm⁻¹ for baseline interpolation (min 4, max 20)",
+class SmoothingMethod(str, Enum):
+    AAV = "AAV"
+    SG = "SG"
+    PF = "PF"
+    FFT = "FFT"
+    Binomial = "Binomial"
+
+
+class BaselineConfig(BaseModel):
+    """Two modes: auto (default) or manual (provide custom_anchor_points)."""
+    metodo_suavizado: SmoothingMethod = SmoothingMethod.AAV
+    ventana_suavizado: int = Field(default=5, ge=3, le=51)
+    distance: int = Field(default=40, ge=5, le=200)
+    prominence: float = Field(default=0.0003, gt=0, le=1.0)
+    custom_anchor_points: list[float] | None = Field(
+        default=None,
+        description=(
+            "If provided, overrides automatic detection. "
+            "Must contain at least 4 unique points within the spectrum range."
+        ),
     )
 
 
-class BaselinePreviewRequest(AnchorPointsField):
+class BaselinePreviewRequest(BaseModel):
     file_id: str
+    config: BaselineConfig = Field(default_factory=BaselineConfig)
 
 
 class BaselinePreviewResponse(BaseModel):
@@ -35,9 +49,13 @@ class BaselinePreviewResponse(BaseModel):
     y_original: list[float]
     y_baseline: list[float]
     y_corregido: list[float]
+    anchor_x: list[float]
+    anchor_y: list[float]
+    n_anchor_points: int
 
 
-class ProcessRequest(AnchorPointsField):
+class ProcessRequest(BaseModel):
+    config: BaselineConfig = Field(default_factory=BaselineConfig)
     rango_carboxilato: tuple[float, float] | None = None
     rango_referencia: tuple[float, float] | None = None
 
@@ -51,6 +69,7 @@ class ProcessResult(BaseModel):
     normalizada: float
     altura_ref: float
     x_pico_carb: float
+    n_anchor_points: int
 
 
 class ProcessResponse(BaseModel):

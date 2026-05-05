@@ -1,18 +1,11 @@
-const DEFAULT_ANCHORS = [450, 800, 1500, 1750, 1850, 2400, 3950];
-
 const state = {
   files: [],
-  anchorPoints: [...DEFAULT_ANCHORS],
   previewFileId: null,
-  lastPreviewData: null,
   resultados: null,
   anovaData: null,
 };
 
-let _previewDebounceTimer = null;
-
 const $ = (sel) => document.querySelector(sel);
-const $$ = (sel) => document.querySelectorAll(sel);
 
 function revealSection(id) {
   $(id).classList.remove("hidden");
@@ -49,8 +42,7 @@ function renderFileList() {
   countEl.textContent = `${state.files.length} file(s)`;
 
   if (state.files.length === 0) {
-    listEl.innerHTML =
-      '<p class="text-slate-400 text-sm">No files uploaded yet.</p>';
+    listEl.innerHTML = '<p class="text-slate-400 text-sm">No files uploaded yet.</p>';
     return;
   }
 
@@ -89,15 +81,12 @@ async function handleDeleteFile(fileId) {
   }
 }
 
-// --- Preview file selector ---
 function updatePreviewSelector() {
   const select = $("#preview-file-select");
   select.innerHTML = state.files
     .map((f) => `<option value="${f.id}">${f.nombre}</option>`)
     .join("");
-  if (state.previewFileId) {
-    select.value = state.previewFileId;
-  }
+  if (state.previewFileId) select.value = state.previewFileId;
 }
 
 function handlePreviewFileChange(fileId) {
@@ -105,113 +94,16 @@ function handlePreviewFileChange(fileId) {
   loadBaselinePreview();
 }
 
-// --- Anchor points ---
-function renderAnchorPointsList() {
-  const listEl = $("#anchor-list");
-  const sorted = [...state.anchorPoints].sort((a, b) => a - b);
-  listEl.innerHTML = sorted
-    .map(
-      (ap, i) => `
-    <span class="inline-flex items-center gap-1 px-2 py-0.5 bg-slate-100 rounded text-xs font-mono">
-      ${Math.round(ap)}
-      <button onclick="removeAnchorPointByValue(${ap})" class="text-slate-400 hover:text-red-500">&times;</button>
-    </span>
-  `
-    )
-    .join("");
-  $("#anchor-count").textContent = `${state.anchorPoints.length} points`;
-}
-
-function removeAnchorPointByValue(value) {
-  const TOLERANCE = 15;
-  state.anchorPoints = state.anchorPoints.filter(
-    (ap) => Math.abs(ap - value) > TOLERANCE
-  );
-  renderAnchorPointsList();
-  debouncedPreview();
-}
-
-function addAnchorPointValue(value) {
-  const rounded = Math.round(value * 10) / 10;
-  const TOLERANCE = 15;
-  const tooClose = state.anchorPoints.some(
-    (ap) => Math.abs(ap - rounded) < TOLERANCE
-  );
-  if (tooClose || state.anchorPoints.length >= 20) return false;
-  state.anchorPoints.push(rounded);
-  renderAnchorPointsList();
-  return true;
-}
-
-function handlePlotClick(xVal, isAnchorPoint) {
-  if (isAnchorPoint) {
-    removeAnchorPointByValue(xVal);
-  } else {
-    if (addAnchorPointValue(xVal)) {
-      debouncedPreview();
-    }
-  }
-}
-
-function debouncedPreview() {
-  clearTimeout(_previewDebounceTimer);
-  _previewDebounceTimer = setTimeout(() => loadBaselinePreview(), 300);
-}
-
+// --- Baseline preview ---
 async function loadBaselinePreview() {
-  if (!state.previewFileId || state.anchorPoints.length < 4) {
-    if (state.anchorPoints.length < 4) {
-      const plotDiv = document.getElementById("baseline-plot");
-      if (plotDiv)
-        plotDiv.innerHTML =
-          '<p class="text-center text-slate-400 text-sm py-20">Need at least 4 anchor points for baseline preview.</p>';
-    }
-    return;
-  }
+  if (!state.previewFileId) return;
 
   try {
-    const data = await baselinePreview(state.previewFileId, state.anchorPoints);
-    state.lastPreviewData = data;
-    plotBaselinePreview("baseline-plot", data, state.anchorPoints, handlePlotClick);
+    const data = await baselinePreview(state.previewFileId);
+    plotBaselinePreview("baseline-plot", data);
+    $("#anchor-count").textContent = `${data.n_anchor_points} anchor points detected`;
   } catch (err) {
     console.error("Baseline preview failed:", err);
-  }
-}
-
-function handleAddAnchorPoint() {
-  const input = $("#anchor-input");
-  const val = parseFloat(input.value);
-  if (isNaN(val) || val < 400 || val > 4000) {
-    alert("Enter a value between 400 and 4000 cm⁻¹");
-    return;
-  }
-  if (addAnchorPointValue(val)) {
-    debouncedPreview();
-  }
-  input.value = "";
-}
-
-function handleResetAnchors() {
-  state.anchorPoints = [...DEFAULT_ANCHORS];
-  renderAnchorPointsList();
-  loadBaselinePreview();
-}
-
-async function handleAutoDetect() {
-  if (!state.previewFileId) return;
-  const btn = $("#btn-auto-detect");
-  btn.disabled = true;
-  btn.textContent = "Detecting...";
-  try {
-    const result = await autoDetectAnchors(state.previewFileId);
-    state.anchorPoints = result.anchor_points;
-    renderAnchorPointsList();
-    loadBaselinePreview();
-  } catch (err) {
-    alert(`Auto-detection failed: ${err.message}`);
-  } finally {
-    btn.disabled = false;
-    btn.textContent = "Auto-detect";
   }
 }
 
@@ -226,12 +118,10 @@ async function handleProcess() {
   statusEl.className = "text-sm text-slate-500";
 
   try {
-    const result = await processAll(state.anchorPoints);
+    const result = await processAll();
     state.resultados = result.resultados;
-
     statusEl.textContent = `Done! ${result.total} spectra processed in ${result.tiempo_segundos}s.`;
     statusEl.className = "text-sm text-emerald-600";
-
     renderResultsTable();
     revealSection("#section-results");
     plotResultsBoxplot("results-plot", state.resultados, "area_carb");
@@ -248,8 +138,7 @@ async function handleProcess() {
 function renderResultsTable() {
   const tbody = $("#results-tbody");
   if (!state.resultados || state.resultados.length === 0) {
-    tbody.innerHTML =
-      '<tr><td colspan="6" class="text-center py-4 text-slate-400">No results yet.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="6" class="text-center py-4 text-slate-400">No results yet.</td></tr>';
     return;
   }
 
@@ -305,8 +194,7 @@ function renderAnovaResults(data) {
     : "text-2xl font-bold text-red-600";
 
   const tbody = $("#anova-tbody");
-  const fuentes = data.tabla_anova.fuente;
-  tbody.innerHTML = fuentes
+  tbody.innerHTML = data.tabla_anova.fuente
     .map((fuente, i) => {
       const p = data.tabla_anova["PR(>F)"][i];
       const sig = p !== null && p < 0.05;
@@ -317,8 +205,7 @@ function renderAnovaResults(data) {
         <td class="px-3 py-1.5 text-sm text-center">${data.tabla_anova.df[i]?.toFixed(0) ?? "-"}</td>
         <td class="px-3 py-1.5 text-sm text-right font-mono">${data.tabla_anova.F[i]?.toFixed(4) ?? "-"}</td>
         <td class="px-3 py-1.5 text-sm text-right font-mono ${sig ? "text-emerald-700 font-semibold" : ""}">${p?.toFixed(6) ?? "-"}</td>
-      </tr>
-    `;
+      </tr>`;
     })
     .join("");
 
@@ -332,8 +219,7 @@ function renderAnovaResults(data) {
         <td class="px-3 py-1.5 text-sm">${name}</td>
         <td class="px-3 py-1.5 text-sm text-right font-mono">${val.toFixed(6)}</td>
         <td class="px-3 py-1.5 text-sm text-right font-mono ${sig ? "text-emerald-700 font-semibold" : ""}">${p.toFixed(6)}</td>
-      </tr>
-    `;
+      </tr>`;
     })
     .join("");
 
@@ -352,8 +238,7 @@ function renderAnovaResults(data) {
         <div class="text-xs text-slate-500 uppercase">NaClO</div>
         <div class="text-lg font-semibold">${opt.naclo.toFixed(2)} mL</div>
       </div>
-    </div>
-  `;
+    </div>`;
 
   if (data.superficies && data.superficies.length > 0) {
     const container = $("#surface-plots");
@@ -364,16 +249,12 @@ function renderAnovaResults(data) {
   }
 }
 
-// --- Excel export ---
 function handleExportExcel() {
   window.open(getExcelUrl(), "_blank");
 }
 
 // --- Init ---
 document.addEventListener("DOMContentLoaded", () => {
-  const dropZone = $("#drop-zone");
-  const fileInput = $("#file-input");
-  initUploadZone(dropZone, fileInput, handleFilesSelected);
+  initUploadZone($("#drop-zone"), $("#file-input"), handleFilesSelected);
   renderFileList();
-  renderAnchorPointsList();
 });

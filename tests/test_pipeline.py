@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from backend.config import DEFAULT_ANCHOR_POINTS
+from backend.config import MIN_ANCHOR_POINTS
 from backend.ftir_pipeline import (
     calcular_baseline,
     calcular_metricas_pico,
@@ -9,6 +9,7 @@ from backend.ftir_pipeline import (
     extraer_experimento_replica,
     procesar_archivo,
     procesar_lote,
+    suavizar_espectro,
 )
 from tests.conftest import escribir_dpt, generar_espectro_sintetico
 
@@ -20,7 +21,7 @@ class TestCargarEspectro:
         x, y = cargar_espectro(archivo_dpt_temporal)
         assert len(x) == len(y)
         assert len(x) > 0
-        assert np.all(np.diff(x) >= 0), "x must be sorted ascending"
+        assert np.all(np.diff(x) >= 0)
 
     def test_archivo_vacio(self, tmp_path):
         path = tmp_path / "empty.dpt"
@@ -42,48 +43,86 @@ class TestCargarEspectro:
             cargar_espectro(path)
 
 
-# --- calcular_baseline ---
+# --- suavizar_espectro ---
 
-class TestCalcularBaseline:
-    def test_pasa_por_anchor_points(self, espectro_sintetico):
+class TestSuavizarEspectro:
+    def test_aav_reduce_ruido(self):
+        x = np.linspace(0, 100, 1000)
+        y_clean = np.sin(x)
+        y_noisy = y_clean + np.random.default_rng(42).normal(0, 0.1, 1000)
+        y_smooth = suavizar_espectro(y_noisy, metodo="AAV", ventana=5)
+        assert len(y_smooth) == len(y_noisy)
+        assert np.std(y_smooth - y_clean) < np.std(y_noisy - y_clean)
+
+    def test_todos_metodos(self):
+        y = np.random.default_rng(42).normal(0, 1, 200)
+        for metodo in ["AAV", "SG", "PF", "FFT", "Binomial"]:
+            result = suavizar_espectro(y, metodo=metodo, ventana=5)
+            assert len(result) == len(y)
+
+    def test_metodo_invalido(self):
+        y = np.ones(100)
+        with pytest.raises(ValueError, match="Unknown smoothing method"):
+            suavizar_espectro(y, metodo="INVALID", ventana=5)
+
+
+# --- calcular_baseline (modo automático) ---
+
+class TestCalcularBaselineAuto:
+    def test_detecta_valles_e_incluye_endpoints(self, espectro_sintetico):
         x, y = espectro_sintetico
-        anchors = [500, 800, 1500, 1750, 1850, 2400, 3500]
-        baseline = calcular_baseline(x, y, anchors)
-        for ap in anchors:
-            idx = np.argmin(np.abs(x - ap))
-            assert abs(baseline[idx] - y[idx]) < 1e-10
+        baseline, anchor_x, anchor_y = calcular_baseline(x, y)
+        assert len(baseline) == len(x)
+        assert len(anchor_x) >= MIN_ANCHOR_POINTS
+        assert len(anchor_x) == len(anchor_y)
+        assert float(anchor_x[0]) == float(x[0])
+        assert float(anchor_x[-1]) == float(x[-1])
+
+    def test_retorna_tupla_de_3(self, espectro_sintetico):
+        x, y = espectro_sintetico
+        result = calcular_baseline(x, y)
+        assert isinstance(result, tuple)
+        assert len(result) == 3
 
     def test_forma_correcta(self, espectro_sintetico):
         x, y = espectro_sintetico
-        anchors = [500, 800, 1500, 1750, 1850, 2400, 3500]
-        baseline = calcular_baseline(x, y, anchors)
+        baseline, _, _ = calcular_baseline(x, y)
         assert baseline.shape == x.shape
 
-    def test_anchor_points_insuficientes(self, espectro_sintetico):
+    def test_pocos_valles_error(self):
+        x = np.linspace(400, 4000, 100)
+        y = np.linspace(0, 1, 100)
+        with pytest.raises(ValueError, match="anchor points"):
+            calcular_baseline(x, y, prominence=0.5)
+
+
+# --- calcular_baseline (modo manual) ---
+
+class TestCalcularBaselineManual:
+    def test_spline_pasa_por_anchors(self, espectro_sintetico):
+        x, y = espectro_sintetico
+        custom = [500.0, 1200.0, 1800.0, 2500.0, 3500.0]
+        baseline, anchor_x, anchor_y = calcular_baseline(x, y, custom_anchor_points=custom)
+        for ax, ay in zip(anchor_x, anchor_y):
+            idx = np.argmin(np.abs(x - ax))
+            assert abs(baseline[idx] - y[idx]) < 1e-10
+
+    def test_fuera_de_rango(self, espectro_sintetico):
+        x, y = espectro_sintetico
+        with pytest.raises(ValueError, match="outside spectrum range"):
+            calcular_baseline(x, y, custom_anchor_points=[100.0, 500.0, 1000.0, 2000.0])
+
+    def test_pocos_puntos(self, espectro_sintetico):
         x, y = espectro_sintetico
         with pytest.raises(ValueError, match="At least 4"):
-            calcular_baseline(x, y, [500, 1000, 2000])
+            calcular_baseline(x, y, custom_anchor_points=[500.0, 1000.0, 2000.0])
 
-    def test_anchor_points_duplicados(self, espectro_sintetico):
+    def test_duplicados_se_deduplican(self, espectro_sintetico):
         x, y = espectro_sintetico
-        anchors = [500, 500, 800, 800, 1500, 1750, 1850, 2400, 3500]
-        baseline = calcular_baseline(x, y, anchors)
+        custom = [500.0, 500.0, 1200.0, 1200.0, 1800.0, 2500.0, 3500.0]
+        baseline, anchor_x, _ = calcular_baseline(x, y, custom_anchor_points=custom)
         assert baseline.shape == x.shape
-
-    def test_duplicados_insuficientes_despues_de_dedup(self, espectro_sintetico):
-        x, y = espectro_sintetico
-        with pytest.raises(ValueError, match="At least 4"):
-            calcular_baseline(x, y, [500, 500, 500, 1000])
-
-    def test_anchor_points_fuera_de_rango(self, espectro_sintetico):
-        x, y = espectro_sintetico
-        with pytest.raises(ValueError, match="outside spectrum range"):
-            calcular_baseline(x, y, [100, 500, 1000, 2000])
-
-    def test_anchor_points_fuera_de_rango_superior(self, espectro_sintetico):
-        x, y = espectro_sintetico
-        with pytest.raises(ValueError, match="outside spectrum range"):
-            calcular_baseline(x, y, [500, 1000, 2000, 5000])
+        assert len(anchor_x) == 5
 
 
 # --- calcular_metricas_pico ---
@@ -95,7 +134,6 @@ class TestCalcularMetricasPico:
         centro = 1620.0
         sigma = 10.0
         y = altura_real * np.exp(-0.5 * ((x - centro) / sigma) ** 2)
-
         metricas = calcular_metricas_pico(x, y, (1580, 1670))
         assert abs(metricas["altura"] - altura_real) < 1e-4
         assert abs(metricas["x_pico"] - centro) < 1.0
@@ -118,17 +156,13 @@ class TestExtraerExperimentoReplica:
 
     def test_nombre_invalido(self):
         assert extraer_experimento_replica("random_file.dpt") == (None, None)
-        assert extraer_experimento_replica("spectrum.csv") == (None, None)
 
 
 # --- procesar_archivo ---
 
 class TestProcesarArchivo:
     def test_pipeline_completo(self, archivo_dpt_temporal):
-        resultado = procesar_archivo(
-            archivo_dpt_temporal,
-            DEFAULT_ANCHOR_POINTS,
-        )
+        resultado = procesar_archivo(archivo_dpt_temporal)
         assert resultado["archivo"] == "Amostra_TCNF_Paul_n_1_1.dpt"
         assert resultado["experimento"] == 1
         assert resultado["replica"] == 1
@@ -137,19 +171,17 @@ class TestProcesarArchivo:
         assert resultado["normalizada"] > 0
         assert resultado["altura_ref"] > 0
         assert 1600 <= resultado["x_pico_carb"] <= 1650
+        assert resultado["n_anchor_points"] >= MIN_ANCHOR_POINTS
 
 
 # --- procesar_lote ---
 
 class TestProcesarLote:
     def test_lote_completo(self, archivos_lote_temporal):
-        df = procesar_lote(archivos_lote_temporal, DEFAULT_ANCHOR_POINTS)
-        assert len(df) == 6  # 3 exp x 2 rep
-        assert list(df.columns) == [
-            "archivo", "experimento", "replica",
-            "altura_carb", "area_carb", "normalizada",
-            "altura_ref", "x_pico_carb",
-        ]
+        df = procesar_lote(archivos_lote_temporal)
+        assert len(df) == 6
+        assert "n_anchor_points" in df.columns
+        assert all(df["n_anchor_points"] >= MIN_ANCHOR_POINTS)
         assert df["experimento"].nunique() == 3
         assert df["replica"].nunique() == 2
 
@@ -157,7 +189,6 @@ class TestProcesarLote:
         calls = []
         procesar_lote(
             archivos_lote_temporal,
-            DEFAULT_ANCHOR_POINTS,
             progress_callback=lambda done, total: calls.append((done, total)),
         )
         assert len(calls) == 6

@@ -37,17 +37,17 @@ async function getSpectrum(fileId) {
   return res.json();
 }
 
-async function baselinePreview(fileId, anchorPoints) {
+async function baselinePreview(fileId, config = {}) {
   const res = await apiRequest("/baseline/preview", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ file_id: fileId, anchor_points: anchorPoints }),
+    body: JSON.stringify({ file_id: fileId, config }),
   });
   return res.json();
 }
 
-async function processAll(anchorPoints, rangoCarboxilato, rangoReferencia) {
-  const body = { anchor_points: anchorPoints };
+async function processAll(config = {}, rangoCarboxilato, rangoReferencia) {
+  const body = { config };
   if (rangoCarboxilato) body.rango_carboxilato = rangoCarboxilato;
   if (rangoReferencia) body.rango_referencia = rangoReferencia;
   const res = await apiRequest("/process", {
@@ -69,11 +69,6 @@ async function runAnova(variableRespuesta = "area_carb") {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ variable_respuesta: variableRespuesta }),
   });
-  return res.json();
-}
-
-async function autoDetectAnchors(fileId, nPoints = 10) {
-  const res = await apiRequest(`/anchors/auto/${fileId}?n_points=${nPoints}`);
   return res.json();
 }
 

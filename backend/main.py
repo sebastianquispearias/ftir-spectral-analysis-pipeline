@@ -25,12 +25,12 @@ from backend.excel_export import generar_excel
 from backend.ftir_pipeline import (
     calcular_baseline,
     cargar_espectro,
-    detectar_anchor_points,
     procesar_lote,
 )
 from backend.models import (
     AnovaRequest,
     AnovaResponse,
+    BaselineConfig,
     BaselinePreviewRequest,
     BaselinePreviewResponse,
     FileInfo,
@@ -60,7 +60,7 @@ class SessionData:
     files: dict[str, FileEntry] = field(default_factory=dict)
     resultados: pd.DataFrame | None = None
     anova_resultado: dict | None = None
-    anchor_points_used: list[float] | None = None
+    config_used: BaselineConfig | None = None
 
 
 sessions: dict[str, SessionData] = {}
@@ -120,6 +120,16 @@ def _get_session(request: Request) -> tuple[str, SessionData]:
 def _parse_filename(nombre: str) -> tuple[int | None, int | None]:
     from backend.ftir_pipeline import extraer_experimento_replica
     return extraer_experimento_replica(nombre)
+
+
+def _extract_baseline_kwargs(config: BaselineConfig) -> dict:
+    return {
+        "metodo_suavizado": config.metodo_suavizado.value,
+        "ventana_suavizado": config.ventana_suavizado,
+        "distance": config.distance,
+        "prominence": config.prominence,
+        "custom_anchor_points": config.custom_anchor_points,
+    }
 
 
 # --- Endpoints ---
@@ -214,17 +224,6 @@ async def get_spectrum(file_id: str, request: Request):
     return {"x": x.tolist(), "y": y.tolist(), "nombre": entry.nombre}
 
 
-@app.get("/api/anchors/auto/{file_id}")
-async def auto_anchor_points(file_id: str, request: Request, n_points: int = 10):
-    _, session = _get_session(request)
-    if file_id not in session.files:
-        raise HTTPException(404, "File not found")
-    entry = session.files[file_id]
-    x, y = cargar_espectro(entry.path)
-    anchors = detectar_anchor_points(x, y, n_points=n_points)
-    return {"anchor_points": anchors, "count": len(anchors)}
-
-
 @app.post("/api/baseline/preview", response_model=BaselinePreviewResponse)
 async def baseline_preview(body: BaselinePreviewRequest, request: Request):
     _, session = _get_session(request)
@@ -234,7 +233,7 @@ async def baseline_preview(body: BaselinePreviewRequest, request: Request):
 
     x, y = cargar_espectro(entry.path)
     try:
-        baseline = calcular_baseline(x, y, body.anchor_points)
+        baseline, anchor_x, anchor_y = calcular_baseline(x, y, **_extract_baseline_kwargs(body.config))
     except ValueError as e:
         raise HTTPException(400, str(e))
 
@@ -244,6 +243,9 @@ async def baseline_preview(body: BaselinePreviewRequest, request: Request):
         y_original=y.tolist(),
         y_baseline=baseline.tolist(),
         y_corregido=y_corregido.tolist(),
+        anchor_x=anchor_x.tolist(),
+        anchor_y=anchor_y.tolist(),
+        n_anchor_points=len(anchor_x),
     )
 
 
@@ -253,20 +255,18 @@ async def process(body: ProcessRequest, request: Request):
     if not session.files:
         raise HTTPException(400, "No files uploaded")
 
-    rango_carb = body.rango_carboxilato or RANGO_CARBOXILATO
-    rango_ref = body.rango_referencia or RANGO_REFERENCIA
-
+    kwargs = _extract_baseline_kwargs(body.config)
     rutas = [fe.path for fe in session.files.values()]
     nombres = {str(fe.path): fe.nombre for fe in session.files.values()}
     start = time.time()
     try:
-        df = procesar_lote(rutas, body.anchor_points, nombres_originales=nombres)
+        df = procesar_lote(rutas, **kwargs, nombres_originales=nombres)
     except ValueError as e:
         raise HTTPException(400, str(e))
     elapsed = time.time() - start
 
     session.resultados = df
-    session.anchor_points_used = body.anchor_points
+    session.config_used = body.config
 
     resultados = [
         ProcessResult(**row.to_dict())
@@ -328,11 +328,14 @@ async def export_excel(request: Request):
         "carboxilato": RANGO_CARBOXILATO,
         "referencia": RANGO_REFERENCIA,
     }
+    config_info = None
+    if session.config_used:
+        config_info = session.config_used.model_dump()
     generar_excel(
         session.resultados,
         session.anova_resultado,
         output_path,
-        anchor_points=session.anchor_points_used,
+        anchor_points=config_info,
         rangos=rangos,
     )
     return FileResponse(

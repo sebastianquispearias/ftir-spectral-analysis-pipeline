@@ -34,15 +34,15 @@ A web application that reduces this to **minutes**:
 | Statistics | statsmodels (OLS, ANOVA) |
 | Frontend | Vanilla JS, Tailwind CSS, Plotly.js |
 | Excel export | openpyxl |
-| Testing | pytest (51 tests) |
+| Testing | pytest (54 tests) |
 
 ## How It Works
 
 ### Baseline Correction
 
-The app uses **cubic B-spline interpolation** (`scipy.interpolate.make_interp_spline`, k=3, not-a-knot boundary conditions) through user-defined anchor points to compute a baseline.
+Automatic pipeline: **AAV smoothing** (window 5) → **valley detection** (`scipy.signal.find_peaks`) → **spectrum endpoints** → **cubic B-spline** (`make_interp_spline`, k=3, not-a-knot).
 
-This is a **reproducible approximation** to Origin's baseline correction workflow. Empirical validation — comparing outputs from this tool and Origin on identical anchor points — is recommended before using results in publications.
+This approximates the OriginLab Peak Analyzer workflow. Empirically validated against a manually processed reference spectrum: **0.5% deviation in peak height, 2.6% in peak area**. A hybrid mode also supports user-supplied anchor points for manual override.
 
 ### Quantification
 
@@ -94,7 +94,7 @@ uvicorn backend.main:app --reload
 pytest tests/ -v
 ```
 
-**51 tests** covering:
+**54 tests** covering:
 - Spectrum loading and validation (empty, corrupt, wrong columns)
 - Baseline interpolation (anchor point validation, boundary cases)
 - Peak metrics (synthetic Gaussian with known analytical solution)
@@ -137,8 +137,7 @@ pytest tests/ -v
 | GET | `/api/files` | List uploaded files |
 | DELETE | `/api/files/{id}` | Delete a file |
 | GET | `/api/spectrum/{id}` | Get spectrum data |
-| GET | `/api/anchor-points/auto/{id}` | Auto-detect anchor points |
-| POST | `/api/baseline/preview` | Preview baseline correction |
+| POST | `/api/baseline/preview` | Preview baseline (auto or manual mode) |
 | POST | `/api/process` | Process all spectra |
 | GET | `/api/results` | Get results |
 | POST | `/api/anova` | Run ANOVA analysis |
@@ -146,13 +145,12 @@ pytest tests/ -v
 
 ## Validation
 
-Pipeline validated against 10 spectra from experiment 1 with anchor points `[450, 800, 1500, 1750, 1850, 2400, 3950]`:
+Pipeline validated against a reference spectrum manually processed in OriginLab by the researcher:
 
-| Metric | Expected | Obtained |
-|--------|----------|----------|
-| Mean peak height | ~0.027 | 0.0271 |
-| Mean integrated area | ~0.902 | 0.9023 |
-| Mean normalized intensity | ~0.273 | 0.2736 |
+| Metric | Origin (manual) | Our pipeline | Deviation |
+|--------|----------------|--------------|-----------|
+| Peak height | 0.02323 | 0.02335 | 0.5% |
+| Peak area | 0.77313 | 0.75335 | 2.6% |
 
 ## License
 

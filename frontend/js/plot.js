@@ -36,7 +36,7 @@ function plotSpectrum(divId, x, y, title = "Spectrum") {
   Plotly.newPlot(divId, [trace], layout, { responsive: true });
 }
 
-function plotBaselinePreview(divId, data, anchorPoints, onClickCallback) {
+function plotBaselinePreview(divId, data) {
   const traces = [
     {
       x: data.x,
@@ -65,49 +65,32 @@ function plotBaselinePreview(divId, data, anchorPoints, onClickCallback) {
     },
   ];
 
-  if (anchorPoints && anchorPoints.length > 0) {
-    const apY = anchorPoints.map((ap) => {
-      const idx = data.x.reduce(
-        (best, val, i) =>
-          Math.abs(val - ap) < Math.abs(data.x[best] - ap) ? i : best,
-        0
-      );
-      return data.y_original[idx];
-    });
+  if (data.anchor_x && data.anchor_x.length > 0) {
     traces.push({
-      x: anchorPoints,
-      y: apY,
+      x: data.anchor_x,
+      y: data.anchor_y,
       type: "scatter",
       mode: "markers",
-      name: "Anchor Points",
-      marker: { color: PLOT_COLORS.anchor, size: 11, symbol: "diamond",
-                line: { color: "white", width: 1.5 } },
-      hovertemplate: "%{x:.1f} cm⁻¹<extra>Click to remove</extra>",
+      name: `Anchor Points (${data.n_anchor_points})`,
+      marker: {
+        color: PLOT_COLORS.anchor, size: 9, symbol: "diamond",
+        line: { color: "white", width: 1.5 },
+      },
+      hovertemplate: "%{x:.1f} cm⁻¹<extra>Anchor point</extra>",
     });
   }
 
   const layout = {
     ...PLOT_LAYOUT_BASE,
-    title: { text: "Click on spectrum to add anchor points • Click a diamond to remove",
-             font: { size: 12, color: "#64748b" } },
+    title: {
+      text: `Automatic baseline detection (${data.n_anchor_points} anchor points)`,
+      font: { size: 12, color: "#64748b" },
+    },
     showlegend: true,
     legend: { x: 0.01, y: 0.99, bgcolor: "rgba(255,255,255,0.8)" },
-    dragmode: "zoom",
   };
 
   Plotly.newPlot(divId, traces, layout, { responsive: true, scrollZoom: true });
-
-  if (onClickCallback) {
-    const plotEl = document.getElementById(divId);
-    plotEl.removeAllListeners?.("plotly_click");
-    plotEl.on("plotly_click", (eventData) => {
-      if (!eventData.points || eventData.points.length === 0) return;
-      const point = eventData.points[0];
-      const isAnchorTrace = point.data.name === "Anchor Points";
-      const xVal = point.x;
-      onClickCallback(xVal, isAnchorTrace);
-    });
-  }
 }
 
 function plotResultsBoxplot(divId, resultados, variable = "area_carb") {
