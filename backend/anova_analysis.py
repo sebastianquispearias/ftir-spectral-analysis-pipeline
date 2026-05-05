@@ -95,7 +95,7 @@ def correr_anova_completo(
     residuals = modelo.resid.tolist()
     predicted = modelo.fittedvalues.tolist()
 
-    superficies = _generar_todas_superficies(modelo, variable_respuesta)
+    superficies = _generar_todas_superficies(modelo, variable_respuesta, condicion_optima)
 
     return {
         "tabla_anova": tabla_dict,
@@ -224,21 +224,23 @@ def _calcular_optimo(modelo, maximize: bool = True) -> dict[str, float]:
     }
 
 
-def _generar_todas_superficies(modelo, variable_respuesta: str) -> list[dict]:
-    """Generate response surfaces for all three factor pairs."""
+def _generar_todas_superficies(
+    modelo, variable_respuesta: str, optimo: dict,
+) -> list[dict]:
+    """Generate response surfaces with the third factor fixed at its optimum."""
     pairs = [
-        ("X1", "X2", {"X3": 0}),
-        ("X1", "X3", {"X2": 0}),
-        ("X2", "X3", {"X1": 0}),
+        ("X1", "X2", "X3"),
+        ("X1", "X3", "X2"),
+        ("X2", "X3", "X1"),
     ]
 
     superficies = []
-    for fx, fy, fijo in pairs:
-        surf = superficie_respuesta(modelo, fijo, fx, fy)
-        fijo_key = list(fijo.keys())[0]
+    for fx, fy, fijo_key in pairs:
+        fijo_val = optimo.get(fijo_key, 0.0)
+        surf = superficie_respuesta(modelo, {fijo_key: fijo_val}, fx, fy)
         surf["z_label"] = variable_respuesta
         surf["factor_fijo"] = fijo_key
-        surf["valor_fijo"] = fijo[fijo_key]
+        surf["valor_fijo"] = float(fijo_val)
         superficies.append(surf)
 
     return superficies

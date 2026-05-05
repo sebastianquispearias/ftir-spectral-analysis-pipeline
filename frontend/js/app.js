@@ -731,6 +731,21 @@ function renderAnovaResults(data) {
     _renderSurfaces(data);
   }
 
+  const o2 = data.condicion_optima;
+  const nearBoundary = ["X1", "X2", "X3"].some((k) => Math.abs(o2[k]) > 0.85);
+  const boundaryEl = document.getElementById("boundary-warning");
+  if (boundaryEl) boundaryEl.remove();
+  if (nearBoundary) {
+    const warning = document.createElement("div");
+    warning.id = "boundary-warning";
+    warning.className = "flex items-start gap-2 px-4 py-3 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-sm mt-3";
+    warning.innerHTML = `<svg class="w-5 h-5 shrink-0 text-amber-500 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"/>
+    </svg>
+    <span>The predicted optimum is near the boundary of the experimental region. The true global optimum may lie outside the tested range. Consider expanding the experimental design.</span>`;
+    $("#surface-plots").parentNode.appendChild(warning);
+  }
+
   if (data.residuals && data.residuals.length > 0) {
     plotQQ("plot-qq", data.residuals);
     plotResidualsVsPredicted("plot-residuals-vs-predicted", data.residuals, data.predicted);

@@ -197,8 +197,11 @@ function _codedToReal(codedVal, label) {
 function _fixedLabel(surfaceData) {
   const fijo = surfaceData.factor_fijo;
   const labels = { X1: "Temp", X2: "Time", X3: "NaClO" };
-  const realVals = { X1: "30 °C", X2: "90 min", X3: "8.0 mL" };
-  return `${labels[fijo] || fijo}=${realVals[fijo] || surfaceData.valor_fijo}`;
+  const units = { X1: " °C", X2: " min", X3: " mL" };
+  const coded = surfaceData.valor_fijo;
+  const f = FACTOR_REAL[Object.keys(FACTOR_CODED_KEY).find((k) => FACTOR_CODED_KEY[k] === fijo)];
+  const realVal = f ? (f.center + f.half * coded).toFixed(1) : coded;
+  return `${labels[fijo] || fijo}=${realVal}${units[fijo] || ""}`;
 }
 
 function plotSurface(divId, surfaceData, optimo, mode) {
