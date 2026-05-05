@@ -378,6 +378,47 @@ async def export_excel(request: Request):
     )
 
 
+@app.post("/api/load-examples", response_model=FileUploadResponse)
+async def load_examples(request: Request):
+    from backend.synthetic import generate_all_synthetic
+
+    session_id, session = _get_session(request)
+    synthetic_files = generate_all_synthetic()
+    uploaded: list[FileInfo] = []
+
+    for filename, content in synthetic_files:
+        existing_id = next(
+            (fid for fid, fe in session.files.items() if fe.nombre == filename),
+            None,
+        )
+        if existing_id:
+            old_entry = session.files.pop(existing_id)
+            old_entry.path.unlink(missing_ok=True)
+
+        file_id = str(uuid.uuid4())
+        file_path = UPLOAD_DIR / session_id / f"{file_id}.dpt"
+        file_path.parent.mkdir(parents=True, exist_ok=True)
+        file_path.write_bytes(content)
+
+        exp, rep = _parse_filename(filename)
+        entry = FileEntry(
+            id=file_id, nombre=filename, path=file_path,
+            tamano=len(content), experimento=exp, replica=rep,
+        )
+        session.files[file_id] = entry
+        uploaded.append(FileInfo(
+            id=file_id, nombre=filename, tamano=len(content),
+            experimento=exp, replica=rep,
+        ))
+
+    from starlette.responses import JSONResponse
+    response = JSONResponse(
+        content=FileUploadResponse(archivos=uploaded, count=len(uploaded)).model_dump()
+    )
+    response.set_cookie("session_id", session_id, httponly=True, samesite="lax")
+    return response
+
+
 frontend_dir = Path(__file__).resolve().parent.parent / "frontend"
 if frontend_dir.exists():
     app.mount("/css", StaticFiles(directory=str(frontend_dir / "css")), name="css")

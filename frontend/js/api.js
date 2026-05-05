@@ -100,6 +100,11 @@ async function runAnova(variableRespuesta = "area_carb", maximize = true) {
   return res.json();
 }
 
+async function loadExamples() {
+  const res = await apiRequest("/load-examples", { method: "POST" });
+  return res.json();
+}
+
 function getExcelUrl() {
   return `${API_BASE}/export/excel`;
 }

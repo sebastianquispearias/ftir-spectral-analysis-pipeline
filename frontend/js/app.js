@@ -98,6 +98,38 @@ function handleResetToAuto() {
   loadBaselinePreview();
 }
 
+// --- Load examples ---
+async function handleLoadExamples() {
+  const btn = $("#btn-load-examples");
+  const statusEl = $("#upload-status");
+  btn.disabled = true;
+  btn.textContent = "Loading...";
+  statusEl.textContent = "Generating 150 synthetic spectra (15 exp x 10 rep)...";
+  statusEl.className = "mt-3 text-sm text-slate-500";
+  try {
+    const result = await loadExamples();
+    state.files = result.archivos;
+    renderFileList();
+    renderUploadSummary();
+    updatePreviewSelector();
+    statusEl.textContent = `${result.count} synthetic spectra loaded (Box-Behnken 15x10).`;
+    statusEl.className = "mt-3 text-sm text-emerald-600";
+    revealSection("#section-baseline");
+    if (state.files.length > 0 && !state.previewFileId) {
+      state.previewFileId = state.files[0].id;
+      $("#preview-file-select").value = state.previewFileId;
+      await loadBaselinePreview();
+    }
+    showToast("Loaded 150 synthetic spectra", "success");
+  } catch (err) {
+    statusEl.textContent = `Failed: ${err.message}`;
+    statusEl.className = "mt-3 text-sm text-red-600";
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "Load example data";
+  }
+}
+
 // --- Upload ---
 async function handleFilesSelected(files, meta = {}) {
   const statusEl = $("#upload-status");

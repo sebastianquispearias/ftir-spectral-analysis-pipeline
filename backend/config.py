@@ -22,4 +22,4 @@ MAX_FILE_SIZE_MB = 5
 MAX_SESSION_SIZE_MB = 200
 SESSION_TIMEOUT_HOURS = 1
 
-FILENAME_PATTERN = re.compile(r"Amostra[_ ]TCNF[_ ]Paul[_ ]n[._](\d+)[._](\d+)\.dpt")
+FILENAME_PATTERN = re.compile(r"(?:Amostra[_ ]TCNF[_ ]Paul[_ ]|Synthetic[_ ]TCNF[_ ])n[._](\d+)[._](\d+)\.dpt")
