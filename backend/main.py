@@ -153,6 +153,18 @@ async def health():
     return {"status": "ok", "commit": commit}
 
 
+@app.post("/api/clear")
+async def clear_session(request: Request):
+    session_id, session = _get_session(request)
+    for fe in session.files.values():
+        fe.path.unlink(missing_ok=True)
+    session.files.clear()
+    session.resultados = None
+    session.anova_resultado = None
+    session.config_used = None
+    return {"cleared": True}
+
+
 @app.post("/api/update-pattern")
 async def update_pattern(request: Request):
     import re as re_module
@@ -421,6 +433,12 @@ async def load_examples(request: Request):
     from backend.synthetic import generate_all_synthetic
 
     session_id, session = _get_session(request)
+    for fe in session.files.values():
+        fe.path.unlink(missing_ok=True)
+    session.files.clear()
+    session.resultados = None
+    session.anova_resultado = None
+
     synthetic_files = generate_all_synthetic()
     uploaded: list[FileInfo] = []
 

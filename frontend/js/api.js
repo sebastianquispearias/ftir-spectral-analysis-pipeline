@@ -100,6 +100,11 @@ async function runAnova(variableRespuesta = "area_carb", maximize = true) {
   return res.json();
 }
 
+async function clearSession() {
+  const res = await apiRequest("/clear", { method: "POST" });
+  return res.json();
+}
+
 async function loadExamples() {
   const res = await apiRequest("/load-examples", { method: "POST" });
   return res.json();

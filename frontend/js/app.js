@@ -137,6 +137,12 @@ async function handleFilesSelected(files, meta = {}) {
   statusEl.textContent = `Uploading ${files.length} file(s)...`;
   statusEl.className = "mt-3 text-sm text-slate-500";
   try {
+    const hasSynthetic = state.files.some((f) => f.nombre.startsWith("Synthetic_"));
+    if (hasSynthetic) {
+      await clearSession();
+      state.files = [];
+      state.previewFileId = null;
+    }
     const result = await uploadFiles(files);
     let replaced = 0;
     for (const newFile of result.archivos) {
