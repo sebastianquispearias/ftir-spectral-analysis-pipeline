@@ -27,8 +27,7 @@ def generar_excel(
     if anova_resultado:
         _hoja_anova(wb, anova_resultado)
         _hoja_coeficientes(wb, anova_resultado)
-    _hoja_info(wb, anchor_points, rangos)
-    _hoja_anchor_config(wb, anchor_points)
+    _hoja_configuracion(wb, df_resultados, anchor_points, rangos)
 
     del wb["Sheet"]
     wb.save(str(ruta_salida))
@@ -162,60 +161,45 @@ def _hoja_coeficientes(wb: Workbook, resultado: dict) -> None:
     _autofit_columns(ws)
 
 
-def _hoja_info(
+def _hoja_configuracion(
     wb: Workbook,
-    anchor_points: list[float] | None,
+    df: pd.DataFrame,
+    config: dict | None,
     rangos: dict[str, tuple[float, float]] | None,
 ) -> None:
-    ws = wb.create_sheet("Info")
-    info = [
-        ("Fecha de generación", datetime.now().strftime("%Y-%m-%d %H:%M:%S")),
-        ("Anchor points", str(anchor_points) if anchor_points else "N/A"),
-        ("Rango carboxilato", str(rangos.get("carboxilato")) if rangos else "N/A"),
-        ("Rango referencia", str(rangos.get("referencia")) if rangos else "N/A"),
-        ("Software", "FTIR Spectral Analysis Pipeline"),
-        ("Versión", "1.0.0"),
+    ws = wb.create_sheet("Processing Configuration")
+    _write_header(ws, ["Field", "Value"])
+
+    cfg = config if isinstance(config, dict) else {}
+    anchors = cfg.get("custom_anchor_points")
+    smoothing_method = cfg.get("metodo_suavizado", "aav")
+    smoothing_window = cfg.get("ventana_suavizado", 5)
+    apply_smoothing = cfg.get("apply_spectrum_smoothing", False)
+    mode = "Manual (custom anchor points)" if anchors else "Automatic (valley detection)"
+    rango_carb = rangos.get("carboxilato", ("N/A", "N/A")) if rangos else ("N/A", "N/A")
+    rango_ref = rangos.get("referencia", ("N/A", "N/A")) if rangos else ("N/A", "N/A")
+
+    rows = [
+        ("Pipeline version", "1.0.0"),
+        ("Processing date", datetime.now().strftime("%Y-%m-%d %H:%M")),
+        ("Number of files processed", len(df)),
+        ("Baseline mode", mode),
+        ("Smoothing method", smoothing_method.upper()),
+        ("Smoothing window", smoothing_window),
+        ("Apply spectrum smoothing", "Yes" if apply_smoothing else "No"),
+        ("Custom anchor points (cm-1)",
+         ", ".join(f"{x:.1f}" for x in sorted(anchors)) if anchors else "N/A"),
+        ("Number of anchor points", len(anchors) if anchors else "auto"),
+        ("Carboxylate range (cm-1)", f"{rango_carb[0]}–{rango_carb[1]}"),
+        ("Reference range (cm-1)", f"{rango_ref[0]}–{rango_ref[1]}"),
     ]
 
-    _write_header(ws, ["Parámetro", "Valor"])
-    for i, (param, val) in enumerate(info, 2):
-        ws.cell(row=i, column=1, value=param).font = Font(bold=True)
-        ws.cell(row=i, column=2, value=val)
+    if not anchors:
+        rows.append(("Peak detection distance", cfg.get("distance", "N/A")))
+        rows.append(("Peak detection prominence", cfg.get("prominence", "N/A")))
 
-    _autofit_columns(ws)
-
-
-def _hoja_anchor_config(wb: Workbook, config: dict | None) -> None:
-    ws = wb.create_sheet("Anchor Points Config")
-
-    if not config or not isinstance(config, dict):
-        ws.cell(row=1, column=1, value="No configuration data available")
-        return
-
-    _write_header(ws, ["Parameter", "Value"])
-    row = 2
-
-    for key, val in config.items():
-        if key == "custom_anchor_points" and val is not None:
-            ws.cell(row=row, column=1, value="Mode").font = Font(bold=True)
-            ws.cell(row=row, column=2, value="Manual (custom anchor points)")
-            row += 1
-            ws.cell(row=row, column=1, value="N anchor points").font = Font(bold=True)
-            ws.cell(row=row, column=2, value=len(val))
-            row += 2
-            _write_header(ws, ["Index", "Wavenumber (cm-1)"], row)
-            row += 1
-            for i, cm in enumerate(sorted(val), 1):
-                ws.cell(row=row, column=1, value=i)
-                ws.cell(row=row, column=2, value=cm).number_format = "0.0"
-                row += 1
-        elif key == "custom_anchor_points" and val is None:
-            ws.cell(row=row, column=1, value="Mode").font = Font(bold=True)
-            ws.cell(row=row, column=2, value="Automatic (valley detection)")
-            row += 1
-        else:
-            ws.cell(row=row, column=1, value=str(key)).font = Font(bold=True)
-            ws.cell(row=row, column=2, value=str(val))
-            row += 1
+    for i, (field, value) in enumerate(rows, 2):
+        ws.cell(row=i, column=1, value=field).font = Font(bold=True)
+        ws.cell(row=i, column=2, value=value)
 
     _autofit_columns(ws)

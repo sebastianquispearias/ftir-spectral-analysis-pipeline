@@ -466,12 +466,22 @@ function startDrag(plotEl, anchorIdx, startEvent) {
 async function handleProcess() {
   const btn = $("#btn-process");
   const statusEl = $("#process-status");
+  const config = getBaselineConfig();
+  const nFiles = state.files.length;
+  const mode = config.custom_anchor_points ? "Manual" : "Auto";
+  const nAnchors = config.custom_anchor_points
+    ? `${config.custom_anchor_points.length} custom anchor points`
+    : "auto-detected anchor points";
+  const smoothDesc = config.apply_spectrum_smoothing
+    ? `${config.metodo_suavizado.toUpperCase()}, window ${config.ventana_suavizado}`
+    : "Off";
+  const msg = `Processing ${nFiles} files with ${nAnchors} (${mode} mode).\nSmoothing: ${smoothDesc}.\n\nContinue?`;
+  if (!confirm(msg)) return;
   btn.disabled = true;
   btn.innerHTML = '<span class="spinner"></span> Processing...';
   statusEl.textContent = "Processing all files...";
   statusEl.className = "text-sm text-slate-500";
   try {
-    const config = getBaselineConfig();
     const result = await processAll(config);
     state.resultados = result.resultados;
     statusEl.textContent = `Done! ${result.total} spectra processed in ${result.tiempo_segundos}s.`;
