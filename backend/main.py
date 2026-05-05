@@ -148,7 +148,15 @@ def _extract_process_kwargs(config: BaselineConfig) -> dict:
 
 @app.get("/api/health")
 async def health():
-    return {"status": "ok"}
+    import subprocess
+    try:
+        commit = subprocess.check_output(
+            ["git", "rev-parse", "--short", "HEAD"],
+            stderr=subprocess.DEVNULL, text=True,
+        ).strip()
+    except Exception:
+        commit = "unknown"
+    return {"status": "ok", "commit": commit}
 
 
 @app.post("/api/upload", response_model=FileUploadResponse)
