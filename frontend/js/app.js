@@ -21,16 +21,21 @@ function revealSection(id) { $(id).classList.remove("hidden"); }
 // --- Tool selection ---
 function setTool(name) {
   state.tool = name;
-  ["add", "move", "remove"].forEach((t) => {
-    $(`#tool-${t}`).classList.toggle("tool-active", t === name);
+  ["add", "move", "remove", "pan"].forEach((t) => {
+    const btn = $(`#tool-${t}`);
+    if (btn) btn.classList.toggle("tool-active", t === name);
   });
+  const plotEl = document.getElementById("baseline-plot");
+  if (plotEl && plotEl._fullLayout) {
+    Plotly.relayout(plotEl, { dragmode: name === "pan" ? "pan" : false });
+  }
   updateCursor();
 }
 
 function updateCursor() {
   const plot = document.getElementById("baseline-plot");
   if (!plot) return;
-  plot.classList.remove("cursor-add", "cursor-move", "cursor-remove");
+  plot.classList.remove("cursor-add", "cursor-move", "cursor-remove", "cursor-pan");
   plot.classList.add(`cursor-${state.tool}`);
 }
 
@@ -901,6 +906,7 @@ document.addEventListener("keydown", (e) => {
   if (e.key === "a") setTool("add");
   if (e.key === "m") setTool("move");
   if (e.key === "d" || e.key === "r") setTool("remove");
+  if (e.key === "p") setTool("pan");
   if (e.ctrlKey && e.key === "z") { e.preventDefault(); handleUndo(); }
 });
 
