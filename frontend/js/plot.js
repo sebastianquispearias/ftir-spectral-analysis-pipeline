@@ -100,7 +100,7 @@ function plotBaselinePreview(divId, data, titleText) {
   Plotly.newPlot(divId, traces, layout, {
     ...PLOTLY_CONFIG,
     scrollZoom: true,
-    modeBarButtonsToRemove: ["select2d", "lasso2d", "autoScale2d"],
+    modeBarButtonsToRemove: ["select2d", "lasso2d", "autoScale2d", "pan2d", "zoom2d", "zoomIn2d", "zoomOut2d", "resetScale2d"],
   });
 }
 
